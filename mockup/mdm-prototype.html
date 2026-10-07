@@ -1,0 +1,612 @@
+<!doctype html>
+<!--
+  PROTOTYPE — THROWAWAY. Not production code.
+
+  Reflects the decision state of ProjectScope.md as of 2026-10-06 (all decisions closed):
+  SBAA chrome with a workflow inbox as Home; year sets with a pinned data standard; managed scopes
+  and partner namespaces; change requests with base revisions, frozen submit, CAS approval and
+  contributor-based separation of duties; targets with compatibility fingerprints; immutable
+  manifests applied with If-Match; run states ok/failed/skipped/conflict/uncertain; re-run of the
+  same manifest; HTTP-API upstream sources only; four single roles (switch user in the app bar).
+
+  The shell reproduces SBAA's chrome 1:1 from startingblocks_admin_app/packages/fe/src/app/Layout
+  (AppBar, resizable Nav + NavButton, StandardLayout main box, Breadcrumbs, PageTemplate +
+  attached page actions + PageContentCard, SbaaTable, IBM Plex Sans, Chakra tokens, Bootstrap Icons).
+
+  Run: open this file in a browser (or any static server). No build, no deps beyond two CDN links
+  (font + icons). State is in memory; reload resets.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Starting Blocks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<style>
+  .ro td{color:var(--gray-500)}
+  .userpick{height:2rem;border:1px solid var(--gray-200);border-radius:var(--radius-md);background:#fff;font:inherit;font-size:.875rem;padding:0 .5rem}
+  /* ---- Chakra tokens as used by SBAA theme ---- */
+  :root{
+    --fg-bg:#fbfbfb;--bg-bg:#f2f2f2;
+    --gray-50:#F7FAFC;--gray-100:#EDF2F7;--gray-200:#E2E8F0;--gray-300:#CBD5E0;--gray-400:#A0AEC0;--gray-500:#718096;--gray-600:#4A5568;--gray-700:#2D3748;--gray-800:#1A202C;
+    --p900:#003029;--p800:#004942;--p700:#00615D;--p600:#007878;--p500:#298F7B;--p200:#A3D1AB;--p100:#CCE6CC;--p50:#F5FAF5;
+    --blue-500:#1C72BB;--blue-600:#0C62A3;
+    --green-100:#C6F6D5;--green-800:#22543D;--yellow-100:#FEFCBF;--yellow-800:#744210;--red-100:#FED7D7;--red-800:#822727;--blue-100:#BEE3F8;--blue-800:#2A4365;--purple-100:#E9D8FD;--purple-800:#44337A;
+    --red-50:#FFF5F5;--green-50:#F0FFF4;--yellow-50:#FFFFF0;
+    --radius-md:0.375rem;--shadow-lg:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);--shadow-inner:inset 0 2px 4px 0 rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:'IBM Plex Sans',sans-serif;font-size:16px;line-height:1.5;color:var(--gray-800);background:var(--fg-bg)}
+  a{color:inherit;text-decoration:none;cursor:pointer}
+  a.lnk{color:var(--blue-500)}a.lnk:hover{text-decoration:underline}
+  button{font:inherit;cursor:pointer}
+  .bi{line-height:0;vertical-align:-0.125em}
+  input::placeholder{font-style:italic}
+  .muted{color:var(--gray-600)}.sm{font-size:.875rem}.xs{font-size:.75rem}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.875em}
+  .row{display:flex;gap:.75rem;align-items:center}.between{justify-content:space-between}.wrap{flex-wrap:wrap}.grow{flex:1}.end{align-items:flex-end}
+  .stack>*+*{margin-top:1rem}
+
+  /* ---- Chakra Button (solid gray default + variants used in SBAA) ---- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;height:2.5rem;min-width:2.5rem;padding:0 1rem;font-weight:600;font-size:1rem;border-radius:var(--radius-md);border:1px solid transparent;background:var(--gray-100);color:var(--gray-800);white-space:nowrap}
+  .btn:hover{background:var(--gray-200)}.btn:active{background:var(--gray-300)}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.primary{background:var(--p500);color:#fff}.btn.primary:hover{background:var(--p600)}
+  .btn.red{background:#E53E3E;color:#fff}.btn.red:hover{background:#C53030}
+  .btn.ghost{background:transparent}.btn.ghost:hover{background:var(--gray-100)}
+  .btn.outline{background:transparent;border-color:var(--gray-200)}.btn.outline:hover{background:var(--gray-100)}
+  .btn.link{background:transparent;color:var(--p500);height:auto;padding:0;font-size:.875rem}.btn.link:hover{text-decoration:underline;background:transparent}
+  .btn.sm{height:2rem;font-size:.875rem;padding:0 .75rem;min-width:2rem}
+  .btn.round{border-radius:99em}
+  .btn.table-row{height:2rem;font-size:1rem;padding:0 .5em;border-radius:0;background:transparent;font-weight:400}.btn.table-row:hover{background:var(--gray-200)}
+
+  /* ---- Chakra Tag/Badge ---- */
+  .tag{display:inline-flex;align-items:center;gap:.25rem;border-radius:var(--radius-md);padding:0 .5rem;height:1.5rem;font-size:.75rem;font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--gray-100);color:var(--gray-800)}
+  .tag.green{background:var(--green-100);color:var(--green-800)}.tag.yellow{background:var(--yellow-100);color:var(--yellow-800)}.tag.red{background:var(--red-100);color:var(--red-800)}.tag.blue{background:var(--blue-100);color:var(--blue-800)}.tag.purple{background:var(--purple-100);color:var(--purple-800)}
+
+  /* ---- Chakra Alert ---- */
+  .alert{display:flex;gap:.75rem;align-items:flex-start;padding:.75rem 1rem;border-radius:var(--radius-md);font-size:1rem}
+  .alert.info{background:#EBF8FF;color:var(--gray-800)}.alert.info .bi{color:var(--blue-500)}
+  .alert.warning{background:#FFFAF0;color:var(--gray-800)}.alert.warning .bi{color:#DD6B20}
+  .alert.error{background:var(--red-50)}.alert.error .bi{color:#E53E3E}
+  .alert b{font-weight:700;margin-right:.25rem}
+
+  /* ---- inputs ---- */
+  .input{height:2.5rem;border:1px solid var(--gray-200);border-radius:var(--radius-md);padding:0 1rem;background:#fff;font:inherit;font-size:1rem;width:100%}
+  .input:focus{outline:none;border-color:#3182CE;box-shadow:0 0 0 1px #3182CE}
+  select.input{appearance:auto}
+  .input.sm{height:2rem;font-size:.875rem;padding:0 .75rem}
+  .input.pill{border-radius:100em;padding-left:2.5rem;padding-right:2.5rem}
+  .search-wrap{position:relative;max-width:30em;flex:1}.search-wrap .bi{position:absolute;left:1rem;top:50%;transform:translateY(-50%);color:var(--gray-300);font-size:1.2em;line-height:0}
+  label.chk{display:inline-flex;gap:.5rem;align-items:center;cursor:pointer}
+  .field label{display:block;font-weight:600;margin:1rem 0 .25rem}.field label.view{color:var(--gray-500);font-weight:400;margin:0 0 .25rem}
+
+  /* ---- SbaaTable (theme Table baseStyle, size sm) ---- */
+  table.sbaa{width:100%;border-collapse:separate;border-spacing:0;font-size:.875rem}
+  table.sbaa thead tr{background:var(--gray-100)}
+  table.sbaa th{padding:.5rem 1rem;text-align:left;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--gray-600);border-top:1px solid var(--gray-200);border-bottom:1px solid var(--gray-200);white-space:nowrap}
+  table.sbaa th:first-of-type{border-top-left-radius:var(--radius-md);border-bottom-left-radius:var(--radius-md);border-left:1px solid var(--gray-200)}
+  table.sbaa th:last-child{border-top-right-radius:var(--radius-md);border-bottom-right-radius:var(--radius-md);border-right:1px solid var(--gray-200)}
+  table.sbaa td{padding:.5rem 1rem;border-top:1px solid transparent;border-bottom:1px solid transparent;vertical-align:middle;line-height:1.25rem}
+  table.sbaa td:first-of-type{border-top-left-radius:var(--radius-md);border-bottom-left-radius:var(--radius-md);border-left:1px solid transparent}
+  table.sbaa td:last-child{border-top-right-radius:var(--radius-md);border-bottom-right-radius:var(--radius-md);border-right:1px solid transparent}
+  table.sbaa tbody tr:hover td{background:var(--gray-100);border-color:var(--gray-200)}
+  table.sbaa .row-hover{visibility:hidden}table.sbaa tbody tr:hover .row-hover{visibility:visible}
+  table.sbaa tr.clickable{cursor:pointer}
+  table.sbaa tr.diff-add td{background:var(--green-50)}table.sbaa tr.diff-del td{background:var(--red-50)}table.sbaa tr.diff-chg td{background:var(--yellow-50)}table.sbaa tr.diff-ext td{color:var(--gray-500)}
+  .pagination{display:flex;justify-content:center;align-items:center;gap:.75rem;padding:1rem}
+  .pagination .grp{display:inline-flex}.pagination .grp .btn{width:2rem;padding:0}.pagination .grp .btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0}.pagination .grp .btn:last-child{border-top-left-radius:0;border-bottom-left-radius:0;margin-left:-1px}
+
+  /* ---- StandardLayout ---- */
+  .layout{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  header.appbar{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;width:100%;background:var(--fg-bg);padding:.25rem .75rem}
+  header.appbar .left{display:flex;align-items:center;gap:.5rem}
+  header.appbar img{height:28px;width:238px;display:block}
+  header.appbar .team{line-height:1.3;border-left:1px solid var(--gray-300);margin-left:.9ch;padding-left:1.5ch;font-weight:600;font-size:1.125rem;color:var(--gray-600)}
+  header.appbar .right{display:flex;align-items:center;gap:.5rem}
+  .iconbtn{display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;border-radius:99em;border:0;background:transparent;color:var(--gray-800);font-size:1.125rem}.iconbtn:hover{background:var(--gray-100)}
+  .avatar{width:2rem;height:2rem;border-radius:99em;background:#319795;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:500}
+  main.std{display:flex;flex:1 1 auto;align-items:flex-start;overflow:hidden;width:100%}
+  nav.sbnav{flex:0 0 15em;width:15em;min-width:11em;height:100%;background:var(--fg-bg);padding:2rem 0 .75rem;display:flex;flex-direction:column;position:relative}
+  nav.sbnav .resize{position:absolute;right:-2px;top:0;bottom:0;width:4px;cursor:col-resize}
+  nav.sbnav .teamsel{margin:0 .75rem 1.75rem}
+  nav.sbnav .teamsel .input{display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+  nav.sbnav h3{padding:0 .75rem;margin:1rem 0 .5rem;color:var(--gray-600);font-weight:600;font-size:1rem}
+  nav.sbnav .envsearch{padding:0 .75rem .75rem}
+  nav.sbnav .scroll{flex:1 1 0;overflow-y:auto}
+  .navrow{display:flex;align-items:center}
+  .navbtn{display:flex;align-items:center;gap:.75rem;width:100%;height:2.25rem;border:0;border-left:2px solid transparent;border-right:2px solid transparent;border-radius:0;background:transparent;color:var(--gray-800);font-weight:400;font-size:1em;padding:0 calc(.25em + var(--d,0em)) 0 calc(.25em + var(--d,0em) + 23px);text-align:left}
+  .navbtn:hover{background:var(--gray-100)}
+  .navbtn.on{color:var(--p600);border-color:var(--p600);background:var(--gray-100)}.navbtn.on:hover{background:var(--gray-200)}
+  .navbtn .bi{font-size:1.25rem;flex:none}.navbtn span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:normal}
+  .caret{position:absolute;width:20px;height:20px;min-width:20px;border:0;background:transparent;border-radius:var(--radius-md);display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--gray-800);transition:transform .5s;z-index:2;margin-left:calc(.6em + var(--d,0em))}
+  .caret:hover{background:var(--gray-200)}.caret.opened{transform:rotate(90deg)}
+  .caretwrap{position:relative;height:20px;width:0}
+  .navpin{position:relative;height:20px;width:0}.navpin .iconbtn{position:absolute;right:.25rem;top:-10px;width:1.5rem;height:1.5rem;font-size:.9rem;color:var(--gray-500)}
+  .content{box-shadow:var(--shadow-inner);border:1px solid var(--gray-200);border-top-left-radius:var(--radius-md);background:var(--bg-bg);height:100%;max-height:100%;overflow:auto;flex-grow:1}
+  .content .inner{display:flex;flex-direction:column;min-width:35em;height:100%;padding:.75rem calc(4vw + .5em)}
+  .content .inner .body{flex-grow:1;padding-bottom:2em;min-width:100%;width:fit-content}
+  .content .inner .copy{font-size:.875rem;color:var(--gray-600);margin-top:auto;text-align:center}
+  .crumbs{font-size:.875rem;color:var(--gray-600);margin-bottom:1.25rem;display:flex;gap:.25rem;align-items:center}.crumbs a:hover{text-decoration:underline}.crumbs .sep{margin:0 .2em}
+
+  /* ---- PageTemplate ---- */
+  .page{margin:0 -.5rem;padding:0 .5rem;width:fit-content;min-width:100%}
+  .page .head{display:flex;align-items:flex-end;justify-content:space-between;padding-right:1px}
+  .page h1{font-size:1.5rem;font-weight:700;line-height:1.33;color:var(--gray-700);margin:0 0 .5rem;white-space:nowrap}
+  .page .actions{display:inline-flex;margin:0;padding:0;z-index:0}
+  .page .actions .btn{border-radius:0;height:2.5rem}
+  .page .actions .btn:first-child{border-top-left-radius:var(--radius-md)}
+  .page .actions .btn:last-child{border-top-right-radius:var(--radius-md)}
+  .page .actions .btn+.btn{border-left:1px solid var(--gray-200)}
+  .card{margin-bottom:1.5rem;box-shadow:var(--shadow-lg);border:1px solid var(--gray-200);border-radius:var(--radius-md);background:var(--fg-bg);min-width:100%;width:fit-content;padding:1.5em}
+  .page.has-actions>.card:first-of-type{border-top-right-radius:0}
+  .section+.section{margin-top:2.5rem}
+  .section h2{font-size:1rem;font-weight:500;margin:0 0 1rem}
+  .attrs{display:grid;grid-template-columns:repeat(auto-fill,minmax(14em,1fr));gap:1rem 2rem}
+  .steps{display:flex;gap:.5rem;margin-bottom:1rem;font-size:.875rem}.steps span{padding:.125rem .75rem;border-radius:99em;background:var(--gray-100);color:var(--gray-600)}.steps span.on{background:var(--p500);color:#fff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+  .kpi{font-size:1.875rem;font-weight:600;line-height:1.2}
+  .li{display:flex;justify-content:space-between;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--gray-200)}.li:last-child{border-bottom:0}
+  .toast{position:fixed;top:1rem;right:1rem;background:var(--p600);color:#fff;padding:.75rem 1rem;border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:50;font-size:.875rem}
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ======================= users & roles (Q22) ======================= */
+const users = [
+  { id: 'm.alvarez', name: 'Maya Alvarez', role: 'mdm-editor', priv: ['read','edit'] },
+  { id: 'r.dhanawade', name: 'Rosh Dhanawade', role: 'mdm-approver', priv: ['read','edit','approve'] },
+  { id: 'j.okafor', name: 'Jide Okafor', role: 'mdm-publisher', priv: ['read','edit','publish'] },
+  { id: 'a.chen', name: 'Alex Chen', role: 'mdm-admin', priv: ['read','edit','approve','publish','configure'] },
+  { id: 'svc-pipeline', name: 'svc-pipeline (machine)', role: 'machine', priv: ['read','edit','publish'], machine: true },
+];
+const S = { userIx: 1, open: { 2026: true, 2025: false, 2024: false }, push: { step: 1, year: 2026, env: 'dev', tenant: '', deletes: false, manifestId: null } };
+const me = () => users[S.userIx];
+const can = p => me().priv.includes(p);
+
+/* ======================= fake data ======================= */
+const partner = { team: 'EA StartingBlocks (internal pilot)' };
+const yearSets = [
+  { year: 2024, ds: 'DS 4.0', api: 'ODS-API 6.2', status: 'archived', revision: 118, keySchema: 'ds4-v1' },
+  { year: 2025, ds: 'DS 5.1', api: 'ODS-API 7.2', status: 'active', revision: 402, keySchema: 'ds5-v1' },
+  { year: 2026, ds: 'DS 5.2', api: 'ODS-API 7.3 + TPDM', status: 'current', revision: 517, keySchema: 'ds5-v1' },
+];
+const families = [
+  { key: 'descriptors', label: 'Descriptors', icon: 'bi-tags', typed: true, owned: 'all', endpoints: ['gradeLevelDescriptors','attendanceEventCategoryDescriptors','programTypeDescriptors','… (84 more)'] },
+  { key: 'edorgs', label: 'Ed Orgs', icon: 'bi-mortarboard', typed: true, owned: 'partial', endpoints: ['localEducationAgencies','schools','educationServiceCenters'] },
+  { key: 'programs', label: 'Programs', icon: 'bi-journal-bookmark', typed: false, owned: 'all', endpoints: ['programs'] },
+  { key: 'assessments', label: 'Assessments', icon: 'bi-clipboard-check', typed: false, owned: 'all', endpoints: ['assessments','objectiveAssessments'] },
+  { key: 'chartOfAccounts', label: 'Chart of Accounts', icon: 'bi-cash-stack', typed: false, owned: 'all', endpoints: ['chartOfAccounts','funds','programs (finance)','functions','objects','balanceSheets','sources','projects'] },
+  { key: 'certifications', label: 'Certifications', icon: 'bi-award', typed: false, owned: 'all', ext: 'TPDM', endpoints: ['tpdm/certifications'] },
+  { key: 'descriptorMappings', label: 'Descriptor Mappings', icon: 'bi-arrow-left-right', typed: false, owned: 'all', endpoints: ['descriptorMappings'] },
+];
+const counts = { 2024: [612,38,14,22,140,0,31], 2025: [634,40,15,24,142,9,33], 2026: [641,41,15,24,142,9,33] };
+
+const scopes = {
+  2026: [{ kind: 'namespace', value: 'uri://ea.startingblocks.org' }, { kind: 'namespace', value: 'uri://lakeside.org' }, { kind: 'edorgSubtree', value: 'LEA 255901 (Lakeside ISD)' }],
+  2025: [{ kind: 'namespace', value: 'uri://lakeside.org' }, { kind: 'edorgSubtree', value: 'LEA 255901 (Lakeside ISD)' }],
+  2024: [{ kind: 'namespace', value: 'uri://lakeside.org' }],
+};
+const inScope = ns => (scopes[2026] || []).some(sc => sc.kind === 'namespace' && ns.startsWith(sc.value));
+
+let descriptors = [
+  { id: 1, ep: 'gradeLevelDescriptors', ns: 'uri://lakeside.org', code: 'PK', short: 'Pre-K', desc: 'Pre-Kindergarten', rev: 3 },
+  { id: 2, ep: 'gradeLevelDescriptors', ns: 'uri://lakeside.org', code: 'TK', short: 'Transitional K', desc: 'Transitional Kindergarten', rev: 1 },
+  { id: 3, ep: 'attendanceEventCategoryDescriptors', ns: 'uri://lakeside.org', code: 'ILL', short: 'Illness', desc: 'Excused – illness', rev: 2 },
+  { id: 4, ep: 'attendanceEventCategoryDescriptors', ns: 'uri://lakeside.org', code: 'REL', short: 'Religious', desc: 'Excused – religious observance', rev: 2 },
+  { id: 5, ep: 'programTypeDescriptors', ns: 'uri://ea.startingblocks.org', code: 'AVID', short: 'AVID', desc: 'Advancement Via Individual Determination', rev: 1 },
+  { id: 6, ep: 'programTypeDescriptors', ns: 'uri://ea.startingblocks.org', code: 'DL', short: 'Dual Language', desc: 'Dual language immersion', rev: 1 },
+  { id: 7, ep: 'gradeLevelDescriptors', ns: 'uri://ed-fi.org', code: 'Ninth grade', short: 'Ninth grade', desc: 'Ninth grade', rev: 0 },
+  { id: 8, ep: 'attendanceEventCategoryDescriptors', ns: 'uri://ed-fi.org', code: 'Excused Absence', short: 'Excused Absence', desc: 'Excused Absence', rev: 0 },
+];
+const descKey = d => `${d.ep}#${d.ns}#${d.code}`;
+
+let changeRequests = [
+  { id: 12, title: 'Add 2026 attendance codes', year: 2026, author: 'm.alvarez', contributors: ['m.alvarez'], status: 'submitted', created: '2026-09-28', hash: 'b7e1…c9', items: [
+      { op: 'create', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#FLD', base: null, after: { codeValue: 'FLD', shortDescription: 'Field Trip', description: 'Excused – school field trip' } },
+      { op: 'update', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#REL', base: 2, recordId: 4, before: { description: 'Excused – religious observance' }, after: { description: 'Excused – religious holiday or observance' } },
+      { op: 'tombstone', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#TRU', base: 1, before: { codeValue: 'TRU', shortDescription: 'Truant' } },
+    ] },
+  { id: 11, title: 'Pull from State descriptor service (upstream)', year: 2026, author: 'system/upstream', contributors: ['svc-pipeline', 'r.dhanawade'], status: 'submitted', created: '2026-09-30', hash: '41aa…07', stale: true, items: [
+      { op: 'update', ep: 'gradeLevelDescriptors', key: 'uri://lakeside.org#PK', base: 2, recordId: 1, before: { description: 'Pre-Kindergarten (3–4)' }, after: { description: 'Pre-Kindergarten' } },
+      { op: 'create', ep: 'schools', key: 'School#255901118', base: null, after: { nameOfInstitution: 'Lakeside STEM Academy', shortNameOfInstitution: 'LSA' } },
+    ] },
+  { id: 10, title: 'Roll-forward 2025 → 2026', year: 2026, author: 'r.dhanawade', contributors: ['r.dhanawade'], status: 'approved', created: '2026-07-02', hash: '0c4d…e2', approver: 'a.chen', items: [] },
+  { id: 9, title: 'Fix CoA fund codes', year: 2025, author: 'j.okafor', contributors: ['j.okafor'], status: 'rejected', created: '2026-05-14', hash: '9f10…1b', items: [] },
+];
+
+/* targets: owned ODSs with fingerprints (Q5, Q24) */
+const targets = [
+  { id: 1, sbe: 'ea-pilot-prod', tenant: 'ea-pilot', ods: 'EdFi_Ods_2026', odsInstanceId: 1, tags: { School_Year: '2026', EA_Tenant: 'ea-pilot', Environment_Type: 'prod' }, fp: { api: '7.3', ds: 'DS 5.2', ext: ['TPDM'], profiles: [] }, fpHash: '8a1f…3c', app: 'mdm-ea-pilot-2026' },
+  { id: 2, sbe: 'ea-pilot-prod', tenant: 'ea-pilot', ods: 'EdFi_Ods_2025', odsInstanceId: 2, tags: { School_Year: '2025', EA_Tenant: 'ea-pilot', Environment_Type: 'prod' }, fp: { api: '7.2', ds: 'DS 5.1', ext: [], profiles: [] }, fpHash: 'c02e…91', app: 'mdm-ea-pilot-2025' },
+  { id: 3, sbe: 'ea-pilot-dev', tenant: 'ea-pilot', ods: 'EdFi_Ods_2026_dev', odsInstanceId: 3, tags: { School_Year: '2026', EA_Tenant: 'ea-pilot', Environment_Type: 'dev' }, fp: { api: '7.3', ds: 'DS 5.2', ext: ['TPDM'], profiles: [] }, fpHash: '77be…d4', app: 'mdm-ea-pilot-2026-dev' },
+  { id: 4, sbe: 'ea-pilot-dev', tenant: 'charter-pilot', ods: 'EdFi_Ods_2026', odsInstanceId: 4, tags: { School_Year: '2026', EA_Tenant: 'charter', Environment_Type: 'dev' }, fp: { api: '7.2', ds: 'DS 5.1', ext: [], profiles: [] }, fpHash: '5e6a…20', app: 'mdm-charter-pilot-2026' },
+  { id: 5, sbe: 'ea-pilot-dev', tenant: 'ea-pilot', ods: 'EdFi_Ods_2026_profiled', odsInstanceId: 5, tags: { School_Year: '2026', EA_Tenant: 'ea-pilot', Environment_Type: 'dev' }, fp: { api: '7.3', ds: 'DS 5.2', ext: ['TPDM'], profiles: ['Assessment-Readable'] }, fpHash: '19c0…ab', app: 'mdm-ea-pilot-2026-profiled' },
+  { id: 6, sbe: 'ea-sandbox-6x', tenant: 'sandbox', ods: 'EdFi_Ods_2024', odsInstanceId: 6, tags: { School_Year: '2024', Environment_Type: 'dev' }, fp: { api: '6.2', ds: 'DS 4.0', ext: [], profiles: [] }, fpHash: 'f4d2…66', app: 'mdm-sandbox-2024' },
+  { id: 7, sbe: 'ea-pilot-dev', tenant: 'sandbox', ods: 'EdFi_Ods_scratch', odsInstanceId: 7, tags: {}, fp: { api: '7.3', ds: 'DS 5.2', ext: [], profiles: [] }, fpHash: '—', app: null },
+];
+const compat = (t, year) => {
+  const ys = yearSets.find(y => y.year === year);
+  if (t.fp.ds !== ys.ds) return { ok: false, why: `data standard ${t.fp.ds} ≠ year set ${ys.ds}` };
+  if (t.fp.profiles.length) return { ok: false, why: `MDM application is profiled (${t.fp.profiles.join(', ')})` };
+  if (!t.fp.ext.includes('TPDM')) return { ok: true, note: 'TPDM absent — Certifications not pushable here' };
+  return { ok: true };
+};
+const fmtTarget = t => `${t.sbe} / ${t.tenant} / ${t.ods}`;
+const resolveTargets = (year, env, tenant) => targets.filter(t => t.tags.School_Year === String(year) && (!env || t.tags.Environment_Type === env) && (!tenant || t.tags.EA_Tenant === tenant));
+
+/* manifests (Q21) and runs (Q25) */
+let manifests = [
+  { id: 31, year: 2026, publishedRevision: 517, createdBy: 'r.dhanawade', created: '2026-10-05 17:40', status: 'approved', includeDeletes: false, targets: [3], ops: [
+      { ix: 0, op: 'create', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#FLD', etag: null },
+      { ix: 1, op: 'update', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#REL', etag: '"5248…"' },
+      { ix: 2, op: 'update', ep: 'programTypeDescriptors', key: 'uri://ea.startingblocks.org#DL', etag: '"9a0c…"' },
+    ] },
+  { id: 30, year: 2026, publishedRevision: 503, createdBy: 'j.okafor', created: '2026-09-21 13:55', status: 'done', includeDeletes: true, targets: [3], ops: [] },
+  { id: 29, year: 2026, publishedRevision: 498, createdBy: 'j.okafor', created: '2026-09-15 09:02', status: 'superseded', includeDeletes: false, targets: [1], ops: [] },
+];
+let runs = [
+  { id: 7, manifestId: 30, year: 2026, when: '2026-09-21 14:02', by: 'j.okafor', targets: [fmtTarget(targets[2])], status: 'partial', counts: { ok: 38, failed: 1, skipped: 2, conflict: 0, uncertain: 1 },
+    records: [
+      { key: 'gradeLevelDescriptors · uri://lakeside.org#TK', op: 'create', state: 'ok' },
+      { key: 'attendanceEventCategoryDescriptors · uri://lakeside.org#TRU', op: 'delete', state: 'failed', err: '409 Conflict — The resource (or a subordinate entity of the resource) cannot be deleted because it is a dependency of the \'StudentSchoolAttendanceEvent\' entity.' },
+      { key: 'descriptorMappings · TRU→ABS', op: 'delete', state: 'skipped', err: 'blocked: parent tombstone attendanceEventCategoryDescriptors#TRU failed' },
+      { key: 'descriptorMappings · TRU→UNX', op: 'delete', state: 'skipped', err: 'blocked: parent tombstone attendanceEventCategoryDescriptors#TRU failed' },
+      { key: 'programTypeDescriptors · uri://ea.startingblocks.org#AVID', op: 'update', state: 'uncertain', err: 'worker lost after PUT; startup sweep marked in_flight → uncertain' },
+    ] },
+  { id: 6, manifestId: 29, year: 2026, when: '2026-09-15 09:15', by: 'j.okafor', targets: [fmtTarget(targets[0])], status: 'success', counts: { ok: 12, failed: 0, skipped: 0, conflict: 0, uncertain: 0 }, records: [] },
+];
+
+const drift = [
+  { target: fmtTarget(targets[0]), scanned: '2026-10-06 02:10', owned: 2, external: 14,
+    rows: [
+      { key: 'schools · School#255901104', field: 'nameOfInstitution', kind: 'owned', mdm: 'West Lakeside Middle', ods: 'W. Lakeside MS' },
+      { key: 'gradeLevelDescriptors · uri://lakeside.org#TK', field: 'description', kind: 'owned', mdm: 'Transitional Kindergarten', ods: 'Transitional Kinder' },
+      { key: 'schools · School#255901104', field: 'webSite', kind: 'external', mdm: '—', ods: 'https://wlms.lakeside.org' },
+      { key: 'schools · School#255901118', field: 'addresses[0].street', kind: 'external', mdm: '—', ods: '410 Harbor Rd' },
+    ] },
+  { target: fmtTarget(targets[2]), scanned: '2026-10-06 02:12', owned: 0, external: 3, rows: [] },
+];
+
+const sources = [
+  { name: 'State descriptor service', origin: 'https://descriptors.state.gov', auth: 'OAuth2 client credentials', secret: 'mdm/ea-pilot/state-descriptors', mapping: '/v2/descriptors → gradeLevelDescriptors, attendanceEventCategoryDescriptors', last: '2026-09-30 06:00', status: 'ok' },
+  { name: 'PowerSchool SIS API', origin: 'https://ps.lakeside.org', auth: 'Bearer', secret: 'mdm/ea-pilot/powerschool', mapping: '/ws/v1/district/school → schools (nested addresses, gradeLevels)', last: '2026-09-15 06:00', status: 'warn' },
+];
+
+/* ======================= utils ======================= */
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const go = h => { location.hash = h; };
+const toast = m => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); };
+const I = (n, extra='') => `<i class="bi ${n} ${extra}"></i>`;
+const tagColor = s => ({ submitted:'yellow', 'in review':'yellow', draft:'blue', approved:'green', rejected:'red', stale:'red', partial:'yellow', suspended:'yellow', success:'green', done:'green', superseded:'', running:'blue', failed:'red', ok:'green', skipped:'yellow', conflict:'red', uncertain:'purple', current:'green', active:'blue', archived:'', prod:'red', dev:'blue', warn:'yellow', owned:'yellow', stretch:'purple', blocked:'red', compatible:'green', external:'' }[s] || '');
+const T = (s, label) => `<span class="tag ${tagColor(s)}">${esc(label ?? s)}</span>`;
+const yearSet = y => yearSets.find(x => x.year === +y);
+const approvedManifests = y => manifests.filter(m => m.year === y && m.status === 'approved');
+const ensureDraft = () => { let d = changeRequests.find(c => c.status === 'draft' && c.year === 2026 && c.contributors.includes(me().id)); if (!d) { d = { id: Math.max(...changeRequests.map(c=>c.id))+1, title: 'Untitled changes', year: 2026, author: me().id, contributors: [me().id], status: 'draft', created: '2026-10-06', hash: null, items: [] }; changeRequests.unshift(d); } return d; };
+const addItem = (item) => { const d = ensureDraft(); if (!d.contributors.includes(me().id)) d.contributors.push(me().id); d.items.push(item); return d; };
+
+/* PageTemplate */
+const page = ({ title, actions = [], body, custom = false }) => `
+  <div class="page ${actions.length ? 'has-actions' : ''}">
+    <div class="head"><h1>${title}</h1><div class="actions">${actions.map(a => `<button class="btn" ${a.disabled ? 'disabled' : ''} onclick="${a.onclick}" title="${esc(a.title || a.text)}">${I(a.icon)} ${esc(a.text)}</button>`).join('')}</div></div>
+    ${custom ? body : `<div class="card">${body}</div>`}
+  </div>`;
+const section = (h, body) => `<div class="section">${h ? `<h2>${h}</h2>` : ''}${body}</div>`;
+const tableSearch = (placeholder='Search', oninput='') => `<div class="row end" style="margin-bottom:1rem"><div class="search-wrap">${I('bi-search')}<input class="input pill" placeholder="${placeholder}" oninput="${oninput}"/></div><button class="btn link">More options</button></div>`;
+const pagination = (n, size=10) => n > size ? `<div class="pagination"><div class="grp"><button class="btn sm outline round" disabled>${I('bi-chevron-double-left')}</button><button class="btn sm outline round" disabled>${I('bi-chevron-left')}</button></div><span>1&nbsp;of&nbsp;${Math.ceil(n/size)}</span><div class="grp"><button class="btn sm outline round">${I('bi-chevron-right')}</button><button class="btn sm outline round">${I('bi-chevron-double-right')}</button></div><select class="input sm" style="width:auto;border-radius:8em"><option>Show 10</option><option>Show 25</option><option>Show 50</option></select></div>` : '';
+const fpCell = t => `<span class="mono">${t.fp.api} · ${t.fp.ds}${t.fp.ext.length ? ' · ' + t.fp.ext.join(',') : ''}${t.fp.profiles.length ? ' · profiled' : ''}</span>`;
+const noPriv = p => `<div class="alert warning" style="margin-bottom:1rem">${I('bi-shield-lock-fill')}<div>You are <b>${me().id}</b> (${me().role}). This action needs <span class="mono">team.mdm:${p}</span>. Switch user in the app bar to demo.</div></div>`;
+
+/* ======================= screens ======================= */
+const screens = {};
+
+screens.home = () => {
+  const review = changeRequests.filter(c => c.status === 'submitted');
+  const drafts = changeRequests.filter(c => c.status === 'draft');
+  const ready = manifests.filter(m => m.status === 'approved');
+  const attention = runs.filter(r => r.status === 'partial' || r.status === 'suspended');
+  return page({ title: 'Home', custom: true, body: `
+  <div class="grid2" style="margin-bottom:1.5rem">
+    <div class="card" style="min-width:0;margin:0">
+      ${section(`Needs review · ${review.length}`, review.map(c => { const mine = c.contributors.includes(me().id); return `<div class="li"><div><a class="lnk" href="#/cr/${c.id}">#${c.id} ${esc(c.title)}</a><div class="sm muted">${c.year} · ${c.author} · ${c.items.length} items${mine ? ' · <b>you contributed — cannot approve</b>' : ''}${c.stale ? ' · ' + T('stale','base revision moved') : ''}</div></div><a class="btn sm" href="#/cr/${c.id}">Review</a></div>`; }).join('') || '<span class="muted">Inbox zero.</span>')}
+      ${section(`Your drafts · ${drafts.filter(c=>c.contributors.includes(me().id)).length}`, drafts.filter(c=>c.contributors.includes(me().id)).map(c => `<div class="li"><a class="lnk" href="#/cr/${c.id}">#${c.id} ${esc(c.title)}</a><span class="sm muted">${c.items.length} items</span></div>`).join('') || '<span class="muted">None</span>')}
+    </div>
+    <div class="card" style="min-width:0;margin:0">
+      ${section(`Approved manifests ready to apply · ${ready.length}`, ready.map(m => `<div class="li"><div><a class="lnk" href="#/manifests/${m.id}">Manifest #${m.id}</a> · ${m.year} · ${m.ops.length} ops · ${m.targets.length} target(s)<div class="sm muted">published rev ${m.publishedRevision} · by ${m.createdBy} · ${m.created}</div></div><a class="btn sm" href="#/manifests/${m.id}">${I('bi-upload')} Apply</a></div>`).join('') || '<span class="muted">Nothing approved and unapplied.</span>')}
+      ${section(`Runs needing attention · ${attention.length}`, attention.map(r => `<div class="li"><div><a class="lnk" href="#/runs/${r.id}">Run #${r.id}</a> · ${r.when}<div class="sm muted">${r.counts.failed} failed · ${r.counts.skipped} skipped · ${r.counts.conflict} conflict · ${r.counts.uncertain} uncertain</div></div>${T(r.status)}</div>`).join('') || '<span class="muted">None</span>')}
+      ${section(`Drift alerts ${T('stretch','stretch')}`, drift.filter(d => d.owned).map(d => `<div class="li"><div><a class="lnk" href="#/drift">${d.target}</a><div class="sm muted">${d.owned} owned-field differences · ${d.scanned}</div></div><a class="btn sm outline" href="#/push">Fix</a></div>`).join('') || '<span class="muted">None</span>')}
+    </div>
+  </div>
+  <div class="card">${section('Year sets', `<table class="sbaa"><thead><tr><th>School year</th><th>Pinned standard</th><th>Status</th><th>Published rev</th><th>Compatible targets</th><th>Open change requests</th><th>Last run</th><th></th></tr></thead><tbody>
+    ${yearSets.slice().reverse().map(y => { const r = runs.find(x => x.year === y.year); const ts = resolveTargets(y.year); return `<tr class="clickable" onclick="S.open[${y.year}]=true;go('#/year/${y.year}')"><td><b>${y.year}</b></td><td>${y.ds} <span class="muted sm">(${y.api})</span></td><td>${T(y.status)}</td><td class="mono">${y.revision}</td><td>${ts.filter(t => compat(t, y.year).ok).length} / ${ts.length}</td><td>${changeRequests.filter(c => c.year===y.year && ['draft','submitted'].includes(c.status)).length}</td><td>${r ? `${r.when} ${T(r.status)}` : '<span class="muted">never</span>'}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`; }).join('')}</tbody></table>`)}</div>` });
+};
+
+screens.year = (yr) => {
+  const y = yearSet(yr); const ts = resolveTargets(y.year);
+  return page({ title: `School year ${y.year}`, actions: [
+      { icon: 'bi-upload', text: 'Build manifest', onclick: `S.push.year=${y.year};S.push.step=1;go('#/push')` },
+      { icon: 'bi-arrow-repeat', text: 'Roll forward', onclick: `go('#/rollforward')` },
+      { icon: 'bi-sliders', text: 'Scopes', onclick: `go('#/settings')` },
+    ], body: `
+    <div class="attrs" style="margin-bottom:2.5rem">
+      <div class="field"><label class="view">Status</label>${T(y.status)}</div>
+      <div class="field"><label class="view">Pinned data standard</label>${y.ds} <span class="muted sm">· key schema ${y.keySchema}</span></div>
+      <div class="field"><label class="view">Published revision</label><span class="mono">${y.revision}</span></div>
+      <div class="field"><label class="view">Managed scopes</label>${(scopes[y.year]||[]).length} (<a class="lnk" href="#/settings">edit</a>)</div>
+      <div class="field"><label class="view">Approved manifests</label>${approvedManifests(y.year).length}</div>
+    </div>
+    ${section('Resource families', `<table class="sbaa"><thead><tr><th>Family</th><th>Endpoints</th><th>Records</th><th>Ownership</th><th>UI</th><th></th></tr></thead><tbody>
+      ${families.map((f,i) => `<tr class="clickable" onclick="go('#/year/${y.year}/${f.key}')"><td>${I(f.icon)} &nbsp;${f.label}${f.ext ? ' ' + T('', f.ext) : ''}</td><td class="mono sm">${f.endpoints.slice(0,3).join(', ')}${f.endpoints.length > 3 ? ', …' : ''}</td><td>${counts[y.year][i]}</td><td>${f.owned === 'all' ? 'All paths MDM-owned' : 'Key + designated paths'}</td><td>${f.typed ? 'Purpose-built' : '<span class="muted">Schema-driven form</span>'}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>`)}
+    ${section('Change requests', changeRequests.filter(c => c.year === y.year).length ? `<table class="sbaa"><thead><tr><th>#</th><th>Title</th><th>Author</th><th>Items</th><th>Status</th></tr></thead><tbody>${changeRequests.filter(c => c.year === y.year).map(c => `<tr class="clickable" onclick="go('#/cr/${c.id}')"><td>${c.id}</td><td>${esc(c.title)}</td><td>${c.author}</td><td>${c.items.length}</td><td>${T(c.status)}${c.stale ? ' ' + T('stale') : ''}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">None</span>')}
+    ${section('Targets (owned ODSs tagged School_Year=' + y.year + ')', `<table class="sbaa"><thead><tr><th>SB Environment</th><th>Ed-Fi Tenant</th><th>ODS</th><th>Fingerprint</th><th>Compatibility</th><th>MDM app</th></tr></thead><tbody>${ts.map(t => { const c = compat(t, y.year); return `<tr><td>${I('bi-hdd')} &nbsp;${t.sbe}</td><td>${I('bi-grid')} &nbsp;${t.tenant}</td><td class="mono">${t.ods}</td><td>${fpCell(t)}</td><td>${c.ok ? T('compatible') + (c.note ? ` <span class="sm muted">${c.note}</span>` : '') : T('blocked') + ` <span class="sm muted">${c.why}</span>`}</td><td>${t.app ? `${I('bi-key')} <span class="mono">${t.app}</span>` : '<span class="muted">none</span>'}</td></tr>`; }).join('')}</tbody></table>`)}` });
+};
+
+screens.records = (yr, fam) => {
+  const y = yearSet(yr); const f = families.find(x => x.key === fam) || families[0];
+  const draft = changeRequests.find(c => c.status === 'draft' && c.contributors.includes(me().id));
+  const actions = [
+    { icon: 'bi-box-arrow-in-down', text: 'Import from ODS', onclick: `importFromOds(${y.year})`, disabled: !can('edit') },
+    { icon: 'bi-file-earmark-arrow-up', text: 'Import file', onclick: `toast('Ed-Fi JSON / CSV → validated per line → draft change request (inside managed scope)')`, disabled: !can('edit') },
+    { icon: 'bi-plug', text: 'Pull from upstream', onclick: `go('#/sources')`, disabled: !can('edit') },
+    { icon: 'bi-plus-lg', text: 'Create', onclick: `newRecord()`, disabled: !can('edit') },
+  ];
+  const banner = draft ? `<div class="alert info" style="margin-bottom:1rem">${I('bi-info-circle-fill')}<div>Your edits collect in draft <a class="lnk" href="#/cr/${draft.id}">#${draft.id} ${esc(draft.title)}</a> (${draft.items.length} items). <a class="lnk" href="#/cr/${draft.id}">Submit for review →</a></div></div>` : '';
+  if (f.key !== 'descriptors') {
+    return page({ title: `${f.label} · ${y.year}`, actions, body: `${banner}${tableSearch()}
+      <div class="alert warning" style="margin-bottom:1rem">${I('bi-exclamation-triangle-fill')}<div>Schema-driven view generated from the ${y.ds} OpenAPI document for <span class="mono">${f.endpoints.join(', ')}</span>. Nested objects, arrays, and references edit through the schema form.${f.ext ? ` Requires <b>${f.ext}</b> in the target fingerprint.` : ''}</div></div>
+      <table class="sbaa"><thead><tr><th>Endpoint</th><th>Natural key</th><th>Property</th><th>Property</th><th>Rev</th><th></th></tr></thead><tbody>${[1,2,3,4,5].map(i => `<tr class="clickable" onclick="toast('Schema form (nested objects/arrays/references) — edit → change request item with base revision')"><td class="mono">${f.endpoints[i % f.endpoints.length]}</td><td class="mono">#${1000+i}</td><td class="muted">…</td><td class="muted">…</td><td class="mono">${i}</td><td><span class="row-hover"><button class="btn table-row">${I('bi-pencil')}</button><button class="btn table-row" title="Tombstone">${I('bi-trash')}</button></span></td></tr>`).join('')}</tbody></table>${pagination(counts[y.year][families.indexOf(f)])}` });
+  }
+  return page({ title: `Descriptors · ${y.year}`, actions, body: `${banner}${tableSearch('Search', 'filterDesc(this.value)')}
+    <div class="sm muted" style="margin-bottom:.75rem">Managed namespaces: ${(scopes[y.year]||[]).filter(s=>s.kind==='namespace').map(s=>`<span class="mono">${s.value}</span>`).join(', ')}. Rows outside scope are read-only.</div>
+    <table class="sbaa" id="desc-table"><thead><tr><th>Endpoint</th><th>Namespace</th><th>Code value</th><th>Short description</th><th>Description</th><th>Rev</th><th>Scope</th><th></th></tr></thead><tbody>
+    ${descriptors.map(d => { const ro = !inScope(d.ns); return `<tr class="${ro ? 'ro' : ''}" data-k="${esc(d.ep+d.ns+d.code).toLowerCase()}"><td class="mono">${d.ep}</td><td class="mono">${d.ns}</td><td class="mono">${d.code}</td><td>${esc(d.short)}</td><td>${esc(d.desc)}</td><td class="mono">${d.rev || '—'}</td><td>${ro ? T('external','read-only') : T('ok','managed')}</td><td style="white-space:nowrap">${ro || !can('edit') ? '' : `<span class="row-hover"><button class="btn table-row" title="Edit" onclick="editRecord(${d.id})">${I('bi-pencil')}</button><button class="btn table-row" title="Tombstone" onclick="tombstoneRecord(${d.id})">${I('bi-trash')}</button></span>`}</td></tr>`; }).join('')}</tbody></table>${pagination(counts[y.year][0])}` });
+};
+window.filterDesc = v => document.querySelectorAll('#desc-table tr[data-k]').forEach(tr => tr.style.display = tr.dataset.k.includes(v.toLowerCase()) ? '' : 'none');
+window.editRecord = id => { const d = descriptors.find(x => x.id === id); const v = prompt('Description', d.desc); if (v == null || v === d.desc) return; addItem({ op: 'update', ep: d.ep, key: `${d.ns}#${d.code}`, base: d.rev, recordId: d.id, before: { description: d.desc }, after: { description: v } }); toast(`Added to draft (base revision ${d.rev})`); render(); };
+window.tombstoneRecord = id => { const d = descriptors.find(x => x.id === id); addItem({ op: 'tombstone', ep: d.ep, key: `${d.ns}#${d.code}`, base: d.rev, recordId: d.id, before: { codeValue: d.code, shortDescription: d.short } }); toast('Tombstone added to draft. Only approved tombstones can become deletes.'); render(); };
+window.newRecord = () => { const code = prompt('Code value (namespace uri://lakeside.org, gradeLevelDescriptors)'); if (!code) return; addItem({ op: 'create', ep: 'gradeLevelDescriptors', key: `uri://lakeside.org#${code}`, base: null, after: { codeValue: code, shortDescription: code, description: code } }); toast('Added to draft (expects absent in published set)'); render(); };
+window.importFromOds = (year) => { const ok = resolveTargets(year).filter(t => compat(t, year).ok); const t = ok[0]; const d = ensureDraft(); d.title = `Import from ${fmtTarget(t)}`; d.items.push({ op: 'create', ep: 'gradeLevelDescriptors', key: 'uri://lakeside.org#06', base: null, after: { codeValue: '06', shortDescription: 'Sixth grade', description: 'Sixth grade' } }); toast(`Import ran in the quiescence window (Total-Count stable across 7 pages). 1 new row inside scope → draft #${d.id}; 2 rows in uri://ed-fi.org stored read-only.`); go(`#/cr/${d.id}`); };
+
+screens.crList = () => page({ title: 'Change requests', actions: [{ icon: 'bi-plus-lg', text: 'Create', onclick: `const d=ensureDraft();go('#/cr/'+d.id)`, disabled: !can('edit') }], body: `${tableSearch()}
+  <table class="sbaa"><thead><tr><th>#</th><th>Title</th><th>Year</th><th>Author</th><th>Contributors</th><th>Items</th><th>Created</th><th>Status</th><th></th></tr></thead><tbody>
+  ${changeRequests.map(c => `<tr class="clickable" onclick="go('#/cr/${c.id}')"><td>${c.id}</td><td>${esc(c.title)}</td><td>${c.year}</td><td>${c.author}</td><td class="sm">${c.contributors.join(', ')}</td><td>${c.items.length}</td><td>${c.created}</td><td>${T(c.status)}${c.stale ? ' ' + T('stale') : ''}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>` });
+
+const diffRow = (it) => {
+  const cls = { create: 'diff-add', update: 'diff-chg', tombstone: 'diff-del' }[it.op];
+  const kv = o => o ? Object.entries(o).map(([k,v]) => `<div><span class="muted">${k}:</span> ${esc(v)}</div>`).join('') : '<span class="muted">—</span>';
+  const rec = it.recordId ? descriptors.find(d => d.id === it.recordId) : null;
+  const stale = rec && it.base !== null && rec.rev !== it.base;
+  return `<tr class="${cls}"><td>${T({create:'ok',update:'warn',tombstone:'failed'}[it.op], it.op)}</td><td class="mono">${it.ep} · ${esc(it.key)}</td><td class="mono">${it.base === null ? 'absent' : it.base}${stale ? ` → <b>${rec.rev}</b> ` + T('stale') : ''}</td><td>${kv(it.before)}</td><td>${kv(it.after)}</td></tr>`;
+};
+screens.cr = (id) => {
+  const c = changeRequests.find(x => x.id === +id); if (!c) return page({ title: 'Not found', body: '' });
+  const contributed = c.contributors.includes(me().id);
+  const approveBlock = !can('approve') ? 'needs team.mdm:approve' : me().machine ? 'machine identities cannot approve' : contributed ? 'you contributed to this batch' : null;
+  const actions = {
+    draft: [{ icon: 'bi-send', text: 'Submit for review', onclick: `crSubmit(${c.id})`, disabled: !c.items.length || !can('edit') }, { icon: 'bi-pencil', text: 'Edit', onclick: `go('#/year/${c.year}/descriptors')`, disabled: !can('edit') }, { icon: 'bi-trash', text: 'Discard', onclick: `toast('Discard draft')`, disabled: !can('edit') }],
+    submitted: [{ icon: 'bi-check-lg', text: 'Approve', onclick: `crApprove(${c.id})`, disabled: !!approveBlock, title: approveBlock || 'Approve (CAS on base revisions)' }, { icon: 'bi-x-lg', text: 'Reject', onclick: `crStatus(${c.id},'rejected')`, disabled: !can('approve') }, { icon: 'bi-arrow-counterclockwise', text: 'Reopen', onclick: `crStatus(${c.id},'draft')`, disabled: !can('edit') }],
+    approved: [{ icon: 'bi-upload', text: 'Build manifest', onclick: `S.push.year=${c.year};S.push.step=1;go('#/push')`, disabled: !can('publish') }],
+    rejected: [{ icon: 'bi-arrow-counterclockwise', text: 'Reopen as draft', onclick: `crStatus(${c.id},'draft')`, disabled: !can('edit') }],
+  }[c.status];
+  return page({ title: `#${c.id} ${esc(c.title)}`, actions, body: `
+    <div class="attrs" style="margin-bottom:2.5rem">
+      <div class="field"><label class="view">Status</label>${T(c.status)}${c.stale ? ' ' + T('stale') : ''}</div>
+      <div class="field"><label class="view">Year set</label><a class="lnk" href="#/year/${c.year}">${c.year}</a> · ${yearSet(c.year).ds}</div>
+      <div class="field"><label class="view">Author</label>${c.author}</div>
+      <div class="field"><label class="view">Contributors</label>${c.contributors.join(', ')}</div>
+      <div class="field"><label class="view">Opened</label>${c.created}</div>
+      <div class="field"><label class="view">Submitted hash</label><span class="mono">${c.hash || '—'}</span></div>
+      ${c.approver ? `<div class="field"><label class="view">Approved by</label>${c.approver}</div>` : ''}
+    </div>
+    ${c.status === 'submitted' ? (approveBlock ? `<div class="alert warning" style="margin-bottom:1.5rem">${I('bi-shield-lock-fill')}<div><b>You cannot approve this batch:</b> ${approveBlock}. Separation of duties is a server rule — team admins are not exempt.</div></div>` : `<div class="alert info" style="margin-bottom:1.5rem">${I('bi-info-circle-fill')}<div><b>Frozen batch.</b> Approval is compare-and-swap on every item's base revision. If any record moved since submit, the whole batch is rejected as stale for rebase.</div></div>`) : ''}
+    ${section(`Items vs published ${c.year} (rev ${yearSet(c.year).revision})`, c.items.length ? `<table class="sbaa"><thead><tr><th>Op</th><th>Record</th><th>Base rev</th><th>Before</th><th>After</th></tr></thead><tbody>${c.items.map(diffRow).join('')}</tbody></table>` : '<span class="muted">No individual items (bulk operation summarised in history).</span>')}
+    ${section('History', `<div class="sm muted">${c.created} — created by ${c.author}${c.hash ? `<br/>… — submitted, batch frozen (${c.hash})` : ''}${c.status === 'approved' ? `<br/>… — approved by ${c.approver || 'approver'}; records rev → ${yearSet(c.year).revision}` : ''}${c.status === 'rejected' ? '<br/>… — rejected' : ''}</div>`)}` });
+};
+window.crSubmit = id => { const c = changeRequests.find(x => x.id === id); c.status = 'submitted'; c.hash = Math.random().toString(16).slice(2,6) + '…' + Math.random().toString(16).slice(2,4); toast(`#${id} submitted — batch frozen (${c.hash})`); render(); };
+window.crStatus = (id, s) => { const c = changeRequests.find(x => x.id === id); c.status = s; if (s === 'draft') { c.hash = null; c.stale = false; } toast(`#${id} → ${s}`); render(); };
+window.crApprove = id => {
+  const c = changeRequests.find(x => x.id === id);
+  const stale = c.items.filter(it => it.recordId && descriptors.find(d => d.id === it.recordId).rev !== it.base);
+  if (stale.length || c.stale) { c.stale = true; toast(`Rejected as stale: ${stale.length || 1} item(s) have a newer base revision. Reopen, rebase, resubmit.`); render(); return; }
+  const ys = yearSet(c.year);
+  c.items.forEach(it => { if (it.recordId) { const d = descriptors.find(x => x.id === it.recordId); d.rev += 1; if (it.op === 'update' && it.after.description) d.desc = it.after.description; } });
+  ys.revision += c.items.length || 1; c.status = 'approved'; c.approver = me().id;
+  manifests.filter(m => m.year === c.year && m.status === 'approved').forEach(m => m.status = 'superseded');
+  toast(`#${id} approved by ${me().id}. Published rev → ${ys.revision}. Open manifests for ${c.year} superseded.`); render();
+};
+
+/* ---- push: targets → manifest preview → approve manifest → apply ---- */
+screens.push = () => {
+  const p = S.push; const ts = resolveTargets(p.year, p.env, p.tenant); const ok = ts.filter(t => compat(t, p.year).ok); const ys = yearSet(p.year);
+  const steps = `<div class="steps">${['Targets','Manifest preview','Approve manifest','Apply'].map((s,i) => `<span class="${p.step === i+1 ? 'on' : ''}">${i+1}. ${s}</span>`).join('')}</div>`;
+  if (!can('publish')) return page({ title: 'Build manifest', body: steps + noPriv('publish') });
+  if (p.step === 1) return page({ title: 'Build manifest', body: `${steps}
+    <div class="row wrap" style="margin-bottom:1.5rem">
+      <div class="field" style="margin:0"><label style="margin-top:0">Year set</label><select class="input" onchange="S.push.year=+this.value;render()">${yearSets.map(y => `<option value="${y.year}" ${y.year===p.year?'selected':''}>${y.year} · ${y.ds}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label style="margin-top:0">Environment_Type</label><select class="input" onchange="S.push.env=this.value;render()"><option value="">any</option>${['dev','prod'].map(e => `<option ${e===p.env?'selected':''}>${e}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label style="margin-top:0">EA_Tenant</label><select class="input" onchange="S.push.tenant=this.value;render()"><option value="">any</option>${['ea-pilot','charter'].map(e => `<option ${e===p.tenant?'selected':''}>${e}</option>`).join('')}</select></div>
+      <label class="chk" style="margin-top:1.75rem"><input type="checkbox" ${p.deletes?'checked':''} onchange="S.push.deletes=this.checked;render()"/> Include approved tombstones as deletes</label></div>
+    ${section(`Resolved targets · ${ok.length} compatible of ${ts.length}`, `<div class="sm muted" style="margin-bottom:.75rem">ODSs this team owns, tagged <span class="mono">School_Year=${p.year}</span>${p.env?` <span class="mono">Environment_Type=${p.env}</span>`:''}${p.tenant?` <span class="mono">EA_Tenant=${p.tenant}</span>`:''}. Year set pins <b>${ys.ds}</b>; published rev <span class="mono">${ys.revision}</span>.</div>
+      <table class="sbaa"><thead><tr><th>SB Environment</th><th>Ed-Fi Tenant</th><th>ODS</th><th>Tags</th><th>Fingerprint</th><th>Compatibility</th><th>MDM app</th></tr></thead><tbody>
+      ${ts.map(t => { const c = compat(t, p.year); return `<tr class="${c.ok ? '' : 'ro'}"><td>${I('bi-hdd')} &nbsp;${t.sbe}</td><td>${I('bi-grid')} &nbsp;${t.tenant}</td><td class="mono">${t.ods}</td><td>${Object.entries(t.tags).map(([k,v]) => T(v==='prod'||v==='dev'?v:'', `${k}=${v}`)).join(' ')}</td><td>${fpCell(t)}</td><td>${c.ok ? T('compatible') + (c.note ? `<div class="sm muted">${c.note}</div>` : '') : T('blocked') + `<div class="sm muted">${c.why}</div>`}</td><td>${t.app ? `${I('bi-key')} <span class="mono">${t.app}</span>` : '—'}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Nothing matches — check tags in SBAA.</td></tr>'}</tbody></table>
+      <div class="sm muted" style="margin-top:.75rem">Not targetable (no <span class="mono">School_Year</span> tag): ${targets.filter(t => !t.tags.School_Year).map(fmtTarget).join(', ')}</div>`)}
+    <div class="row between" style="margin-top:1.5rem"><span class="sm muted">${approvedManifests(p.year).length ? `${approvedManifests(p.year).length} approved manifest(s) already open for ${p.year}` : ''}</span><button class="btn primary" ${ok.length?'':'disabled'} onclick="S.push.step=2;render()">Read targets &amp; preview ${I('bi-arrow-right')}</button></div>` });
+  if (p.step === 2) return page({ title: 'Build manifest', custom: true, body: `<div class="card">${steps}
+    <div class="alert info" style="margin-bottom:1rem">${I('bi-info-circle-fill')}<div>Reads ran in the quiescence window; <span class="mono">Total-Count</span> stable across pages. Updates replace only owned paths in the target's current representation. Deletes come only from approved tombstones.</div></div>
+    ${ok.map(t => section(`${fmtTarget(t)} <span class="sm muted" style="font-weight:400">· via ${t.app} · fingerprint ${t.fpHash} · order from /metadata/data/v3/dependencies</span>`, `
+      <table class="sbaa"><thead><tr><th>Op</th><th>Record</th><th>ODS now</th><th>MDM (rev ${ys.revision})</th><th>Ownership</th><th>Observed ETag</th></tr></thead><tbody>
+        <tr class="diff-add"><td>${T('ok','create')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://lakeside.org#FLD</td><td class="muted">—</td><td>Field Trip</td><td>MDM (in scope)</td><td class="mono">—</td></tr>
+        <tr class="diff-chg"><td>${T('warn','update')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://lakeside.org#REL</td><td>Excused – religious observance</td><td>Excused – religious holiday or observance</td><td>MDM</td><td class="mono">"5248…"</td></tr>
+        <tr class="diff-chg"><td>${T('warn','update')}</td><td class="mono">schools · School#255901104 · nameOfInstitution</td><td>W. Lakeside MS</td><td>West Lakeside Middle School</td><td>MDM · drift → overwritten</td><td class="mono">"e01b…"</td></tr>
+        <tr class="diff-ext"><td>${T('','visibility')}</td><td class="mono">schools · School#255901104 · webSite</td><td>https://wlms.lakeside.org</td><td class="muted">not managed</td><td>External (SIS) — preserved in PUT</td><td class="mono">"e01b…"</td></tr>
+        <tr class="diff-ext"><td>${T('','read-only')}</td><td class="mono">gradeLevelDescriptors · uri://ed-fi.org#Ninth grade</td><td>Ninth grade</td><td class="muted">outside managed scope</td><td>Alliance namespace — never written</td><td class="mono">—</td></tr>
+        ${p.deletes ? `<tr class="diff-del"><td>${T('failed','delete')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://lakeside.org#TRU</td><td>Truant</td><td class="muted">tombstone (approved in #12)</td><td>MDM · ${T('warn','may be refused')}</td><td class="mono">"77a9…"</td></tr>` : `<tr><td colspan="6" class="sm muted">1 approved tombstone hidden — deletes are opt-in (step 1)</td></tr>`}
+      </tbody></table>`)).join('')}
+    <div class="row between" style="margin-top:1.5rem"><button class="btn" onclick="S.push.step=1;render()">${I('bi-arrow-left')} Targets</button><button class="btn primary" onclick="approveManifest()">${I('bi-lock')} Approve manifest</button></div></div>` });
+  return screens.manifest(p.manifestId);
+};
+window.approveManifest = () => {
+  const p = S.push; const ok = resolveTargets(p.year, p.env, p.tenant).filter(t => compat(t, p.year).ok); const ys = yearSet(p.year);
+  const id = Math.max(...manifests.map(m => m.id)) + 1;
+  const ops = [
+    { ix: 0, op: 'create', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#FLD', etag: null },
+    { ix: 1, op: 'update', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#REL', etag: '"5248…"' },
+    { ix: 2, op: 'update', ep: 'schools', key: 'School#255901104', etag: '"e01b…"' },
+  ];
+  if (p.deletes) ops.push({ ix: 3, op: 'delete', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#TRU', etag: '"77a9…"' }, { ix: 4, op: 'delete', ep: 'descriptorMappings', key: 'TRU→ABS', etag: '"3b3b…"' });
+  manifests.unshift({ id, year: p.year, publishedRevision: ys.revision, createdBy: me().id, created: '2026-10-06 now', status: 'approved', includeDeletes: p.deletes, targets: ok.map(t => t.id), ops });
+  p.step = 4; p.manifestId = id; toast(`Manifest #${id} approved and frozen (rev ${ys.revision}, ${ops.length} ops, ${ok.length} target(s))`); go(`#/manifests/${id}`);
+};
+
+screens.manifests = () => page({ title: 'Manifests', body: `<table class="sbaa"><thead><tr><th>#</th><th>Year set</th><th>Published rev</th><th>Ops</th><th>Targets</th><th>Deletes</th><th>Approved by</th><th>Status</th><th></th></tr></thead><tbody>
+  ${manifests.map(m => `<tr class="clickable" onclick="go('#/manifests/${m.id}')"><td>${m.id}</td><td>${m.year}</td><td class="mono">${m.publishedRevision}</td><td>${m.ops.length}</td><td class="sm">${m.targets.map(id => fmtTarget(targets.find(t => t.id === id))).join('<br/>')}</td><td>${m.includeDeletes ? 'yes' : 'no'}</td><td>${m.createdBy}</td><td>${T(m.status)}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>` });
+
+screens.manifest = (id) => {
+  const m = manifests.find(x => x.id === +id); if (!m) return page({ title: 'Not found', body: '' });
+  const ys = yearSet(m.year); const live = ys.revision === m.publishedRevision; const runsFor = runs.filter(r => r.manifestId === m.id);
+  const applyBlock = !can('publish') ? 'needs team.mdm:publish' : m.status !== 'approved' ? `manifest is ${m.status}` : !live ? 'superseded — published revision advanced' : runsFor.some(r => r.status === 'running') ? 'a run is already active' : null;
+  return page({ title: `Manifest #${m.id}`, actions: [{ icon: 'bi-upload', text: 'Apply', onclick: `applyManifest(${m.id})`, disabled: !!applyBlock, title: applyBlock || 'Apply with If-Match' }, { icon: 'bi-x-circle', text: 'Discard', onclick: `toast('Manifest discarded')`, disabled: !can('publish') || m.status !== 'approved' }], body: `
+    <div class="attrs" style="margin-bottom:2.5rem">
+      <div class="field"><label class="view">Status</label>${T(live || m.status !== 'approved' ? m.status : 'superseded')}</div>
+      <div class="field"><label class="view">Year set</label><a class="lnk" href="#/year/${m.year}">${m.year}</a> · ${ys.ds}</div>
+      <div class="field"><label class="view">Published revision</label><span class="mono">${m.publishedRevision}</span> ${live ? '<span class="sm muted">(current)</span>' : `<span class="sm" style="color:var(--red-800)">(current is ${ys.revision})</span>`}</div>
+      <div class="field"><label class="view">Approved by</label>${m.createdBy} · ${m.created}</div>
+      <div class="field"><label class="view">Deletes included</label>${m.includeDeletes ? 'yes (approved tombstones only)' : 'no'}</div>
+    </div>
+    ${applyBlock && m.status === 'approved' ? `<div class="alert warning" style="margin-bottom:1.5rem">${I('bi-exclamation-triangle-fill')}<div><b>Cannot apply:</b> ${applyBlock}.${!live ? ' Build a new manifest from the current published revision.' : ''}</div></div>` : ''}
+    ${section('Targets (fingerprint frozen at approval; re-checked before each target)', `<table class="sbaa"><thead><tr><th>Target</th><th>MDM app</th><th>Fingerprint</th><th>Tags</th></tr></thead><tbody>${m.targets.map(id => { const t = targets.find(x => x.id === id); return `<tr><td>${fmtTarget(t)}</td><td class="mono">${t.app}</td><td>${fpCell(t)} <span class="mono muted">${t.fpHash}</span></td><td>${Object.entries(t.tags).map(([k,v]) => T(v==='prod'||v==='dev'?v:'', `${k}=${v}`)).join(' ')}</td></tr>`; }).join('')}</tbody></table>`)}
+    ${section(`Operations · ${m.ops.length} (dependency order)`, m.ops.length ? `<table class="sbaa"><thead><tr><th>#</th><th>Op</th><th>Record</th><th>If-Match</th></tr></thead><tbody>${m.ops.map(o => `<tr class="${{create:'diff-add',update:'diff-chg',delete:'diff-del'}[o.op]}"><td class="mono">${o.ix}</td><td>${T({create:'ok',update:'warn',delete:'failed'}[o.op], o.op)}</td><td class="mono">${o.ep} · ${esc(o.key)}</td><td class="mono">${o.etag || '—'}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">Operations summarised in the run.</span>')}
+    ${runsFor.length ? section('Runs', runsFor.map(r => `<div class="li"><a class="lnk" href="#/runs/${r.id}">Run #${r.id} · ${r.when} · ${r.by}</a>${T(r.status)}</div>`).join('')) : ''}` });
+};
+window.applyManifest = (id) => {
+  const m = manifests.find(x => x.id === id); const t = targets.find(x => x.id === m.targets[0]);
+  const rid = Math.max(...runs.map(r => r.id)) + 1;
+  const records = m.ops.map(o => {
+    if (o.op === 'delete' && o.ep === 'attendanceEventCategoryDescriptors') return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'failed', err: '409 Conflict — cannot be deleted because it is a dependency of the \'StudentSchoolAttendanceEvent\' entity.' };
+    if (o.op === 'delete') return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'skipped', err: 'blocked: parent tombstone attendanceEventCategoryDescriptors#TRU failed' };
+    if (o.key === 'uri://lakeside.org#REL') return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'conflict', err: '412 Precondition Failed — ETag "5248…" no longer matches (SIS vendor wrote after manifest). Needs a new manifest.' };
+    return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'ok' };
+  });
+  const counts = { ok: 0, failed: 0, skipped: 0, conflict: 0, uncertain: 0 }; records.forEach(r => counts[r.state]++);
+  const status = counts.failed || counts.skipped || counts.conflict || counts.uncertain ? 'partial' : 'success';
+  runs.unshift({ id: rid, manifestId: m.id, year: m.year, when: '2026-10-06 now', by: me().id, targets: m.targets.map(i => fmtTarget(targets.find(x => x.id === i))), status, counts, records });
+  m.status = 'done'; toast(`Run #${rid} ${status}: ${counts.ok} ok · ${counts.failed} failed · ${counts.skipped} skipped · ${counts.conflict} conflict`); go(`#/runs/${rid}`);
+};
+
+screens.run = (id) => {
+  const r = runs.find(x => x.id === +id); if (!r) return page({ title: 'Not found', body: '' });
+  const retriable = r.records.filter(x => ['failed','skipped','uncertain'].includes(x.state)).length;
+  return page({ title: `Run #${r.id}`, actions: [{ icon: 'bi-arrow-repeat', text: `Re-run ${retriable} remaining`, onclick: `rerun(${r.id})`, disabled: !can('publish') || !retriable, title: 'Same manifest; uncertain reconciled by natural key first' }], body: `
+    <div class="attrs" style="margin-bottom:2.5rem">
+      <div class="field"><label class="view">Status</label>${T(r.status)}</div>
+      <div class="field"><label class="view">Manifest</label><a class="lnk" href="#/manifests/${r.manifestId}">#${r.manifestId}</a></div>
+      <div class="field"><label class="view">Year set</label><a class="lnk" href="#/year/${r.year}">${r.year}</a></div>
+      <div class="field"><label class="view">Started</label>${r.when}</div>
+      <div class="field"><label class="view">Publisher</label>${r.by}</div>
+      <div class="field" style="grid-column:1/-1"><label class="view">Targets</label>${r.targets.join('<br/>')}</div>
+    </div>
+    <div class="grid3" style="margin-bottom:1rem"><div><div class="kpi" style="color:var(--green-800)">${r.counts.ok}</div><div class="muted">ok</div></div><div><div class="kpi" style="color:var(--red-800)">${r.counts.failed}</div><div class="muted">failed (refused by ODS/API)</div></div><div><div class="kpi" style="color:var(--yellow-800)">${r.counts.skipped}</div><div class="muted">skipped (blocked by a failure)</div></div></div>
+    <div class="grid3" style="margin-bottom:2.5rem"><div><div class="kpi" style="color:var(--red-800)">${r.counts.conflict}</div><div class="muted">conflict (412 — needs new manifest)</div></div><div><div class="kpi" style="color:var(--purple-800)">${r.counts.uncertain}</div><div class="muted">uncertain (reconcile before retry)</div></div><div></div></div>
+    ${r.status !== 'success' ? `<div class="alert error" style="margin-bottom:1.5rem">${I('bi-x-circle-fill')}<div><b>No rollback.</b> The ODS/API is non-transactional; what succeeded stays applied. Re-run finishes <i>this</i> manifest's failed, skipped, and uncertain operations only. Conflicts need a new manifest.</div></div>` : ''}
+    ${section('Per-operation outcomes', r.records.length ? `<table class="sbaa"><thead><tr><th>Record</th><th>Op</th><th>State</th><th>Detail</th></tr></thead><tbody>${r.records.map(x => `<tr><td class="mono">${esc(x.key)}</td><td>${x.op}</td><td>${T(x.state)}</td><td class="${['failed','conflict'].includes(x.state)?'mono':'sm muted'}">${esc(x.err||'')}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">All operations succeeded.</span>')}` });
+};
+window.rerun = id => { const r = runs.find(x => x.id === id); r.records.forEach(x => { if (x.state === 'uncertain') { x.state = 'ok'; x.err = 'reconciled: GET by natural key shows intended state — no retry needed'; } }); r.counts.uncertain = 0; r.counts.ok = r.records.filter(x => x.state === 'ok').length; toast('Re-run: uncertain reconciled by natural key; failed/skipped retried against the same manifest (409 persists until data changes)'); render(); };
+screens.runs = () => page({ title: 'Runs', body: `${tableSearch()}<table class="sbaa"><thead><tr><th>#</th><th>Manifest</th><th>Year</th><th>Started</th><th>Publisher</th><th>Targets</th><th>ok / failed / skipped / conflict / uncertain</th><th>Status</th><th></th></tr></thead><tbody>
+  ${runs.map(r => `<tr class="clickable" onclick="go('#/runs/${r.id}')"><td>${r.id}</td><td>#${r.manifestId}</td><td>${r.year}</td><td>${r.when}</td><td>${r.by}</td><td class="sm">${r.targets.join('<br/>')}</td><td class="mono">${r.counts.ok} / ${r.counts.failed} / ${r.counts.skipped} / ${r.counts.conflict} / ${r.counts.uncertain}</td><td>${T(r.status)}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>` });
+
+screens.drift = () => page({ title: `Drift &nbsp;${T('stretch','stretch')}`, actions: [{ icon: 'bi-arrow-repeat', text: 'Scan now', onclick: `toast('Read-only manifest build queued for every compatible target')`, disabled: !can('configure') }], body: `
+  <div class="alert info" style="margin-bottom:1.5rem">${I('bi-info-circle-fill')}<div>Opt-in scheduled scan that reuses the manifest build in read-only mode — it never approves or applies. Owned-path drift → fix via a new manifest or adopt into a change request; external drift is visibility only.</div></div>
+  <label class="chk" style="margin-bottom:1.5rem"><input type="checkbox" checked ${can('configure') ? '' : 'disabled'} onchange="toast('Scan schedule toggled (per partner, off-peak)')"/> Nightly scan enabled for ${partner.team}</label>
+  ${drift.map(d => section(`${d.target} <span class="sm muted" style="font-weight:400">· scanned ${d.scanned} · ${d.owned} owned-path, ${d.external} external</span>`, d.rows.length ? `<table class="sbaa"><thead><tr><th>Record · path</th><th>MDM</th><th>ODS</th><th>Kind</th><th></th></tr></thead><tbody>${d.rows.map(r => `<tr class="${r.kind==='owned'?'diff-chg':'diff-ext'}"><td class="mono">${esc(r.key)} · ${esc(r.field)}</td><td>${esc(r.mdm)}</td><td>${esc(r.ods)}</td><td>${r.kind === 'owned' ? T('owned') : T('','external')}</td><td style="white-space:nowrap">${r.kind === 'owned' ? `<button class="btn table-row" onclick="go('#/push')">${I('bi-upload')} new manifest</button><button class="btn table-row" onclick="toast('Adopt → change request item with base revision')">${I('bi-box-arrow-in-down')} adopt</button>` : '<span class="sm muted">visibility only</span>'}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">Only external drift; nothing MDM-owned differs.</span>')).join('')}` });
+
+screens.sources = () => page({ title: 'Upstream sources', actions: [{ icon: 'bi-plus-lg', text: 'Create', onclick: `toast('HTTP API only: origin must be on the team allow-list; secret must be an MDM-owned Secrets Manager entry tagged with this team')`, disabled: !can('configure') }], body: `
+  <div class="alert info" style="margin-bottom:1.5rem">${I('bi-info-circle-fill')}<div>Read-only HTTP-API connectors to a partner's system of record. Pulls land as change requests; connectors never write back. Destinations are allow-listed HTTPS origins; private/link-local addresses and cross-origin redirects are refused; secrets are team-bound. Direct database sources are deferred from v1.</div></div>
+  <table class="sbaa"><thead><tr><th>Source</th><th>Origin (allow-listed)</th><th>Auth</th><th>Secret ref</th><th>Mapping</th><th>Last pull</th><th>Status</th><th></th></tr></thead><tbody>
+  ${sources.map((s,i) => `<tr><td>${I('bi-plug')} &nbsp;${esc(s.name)}</td><td class="mono">${s.origin}</td><td>${s.auth}</td><td class="mono">${s.secret}</td><td class="sm">${esc(s.mapping)}</td><td>${s.last}</td><td>${T(s.status)}</td><td style="white-space:nowrap"><button class="btn table-row" ${can('edit') ? '' : 'disabled'} onclick="pullSource(${i})">${I('bi-download')} Pull now</button><button class="btn table-row" ${can('configure') ? '' : 'disabled'} onclick="toast('Edit mapping: endpoint + JSON paths → Ed-Fi write shape, incl. nested objects/arrays')">${I('bi-pencil')}</button></td></tr>`).join('')}</tbody></table>` });
+window.pullSource = i => { const d = ensureDraft(); d.title = `Pull from ${sources[i].name}`; d.contributors = [...new Set([...d.contributors, 'svc-pipeline'])]; d.items.push({ op: 'update', ep: 'schools', key: 'School#255901104', base: 7, before: { shortNameOfInstitution: 'WLM' }, after: { shortNameOfInstitution: 'WLMS' } }); toast(`Pull complete (bounded response, 2 rows) → draft #${d.id}`); go(`#/cr/${d.id}`); };
+
+screens.settings = () => page({ title: 'Settings · managed scopes', actions: [{ icon: 'bi-plus-lg', text: 'Add scope', onclick: `toast('Scope kinds: descriptor namespace prefix · EdOrg subtree · all')`, disabled: !can('configure') }], body: `
+  ${!can('configure') ? noPriv('configure') : ''}
+  ${section('Partner namespaces (set on the MDM vendor in SBAA)', `<div class="row wrap">${['uri://ea.startingblocks.org','uri://lakeside.org'].map(n => `<span class="tag">${n}</span>`).join('')}<button class="btn sm outline" ${can('configure')?'':'disabled'} onclick="toast('PUT /api/teams/:teamId/mdm/namespaces → vendor namespacePrefixes updated')">${I('bi-pencil')} Edit</button></div><div class="sm muted" style="margin-top:.5rem">Descriptors in <span class="mono">uri://ed-fi.org</span> and other vendors' namespaces are imported read-only. Ed-Fi namespace authorization is separate from resource CRUD.</div>`)}
+  ${section('Managed scopes by year set', `<table class="sbaa"><thead><tr><th>Year set</th><th>Kind</th><th>Scope</th><th></th></tr></thead><tbody>${Object.entries(scopes).sort((a,b)=>b[0]-a[0]).flatMap(([y, list]) => list.map(sc => `<tr><td>${y}</td><td>${T('', sc.kind)}</td><td class="mono">${sc.value}</td><td><button class="btn table-row row-hover" ${can('configure')?'':'disabled'}>${I('bi-trash')}</button></td></tr>`)).join('')}</tbody></table><div class="sm muted" style="margin-top:.5rem">MDM may create, update, or tombstone records only inside a scope. Set difference between a target and MDM never produces a delete.</div>`)}
+  ${section('Field ownership policy (v1 global defaults)', `<table class="sbaa"><thead><tr><th>Family</th><th>Owned paths</th><th>Create</th><th>Update</th></tr></thead><tbody>${families.map(f => `<tr><td>${f.label}</td><td>${f.owned === 'all' ? 'all' : '<span class="mono">nameOfInstitution, shortNameOfInstitution, parent refs, categories</span>'}</td><td>full stored payload</td><td>${f.owned === 'all' ? 'full replace' : 'owned paths merged into target representation'}</td></tr>`).join('')}</tbody></table>`)}` });
+
+screens.rollforward = () => page({ title: 'Roll forward', body: `
+  ${!can('edit') ? noPriv('edit') : ''}
+  <div class="row wrap" style="margin-bottom:1.5rem"><div class="field" style="margin:0"><label style="margin-top:0">From year set</label><select class="input"><option>2026 · DS 5.2 (rev 517)</option><option>2025 · DS 5.1 (rev 402)</option><option>2024 · DS 4.0 — EA 6.x sandbox (rev 118)</option></select></div><span style="margin-top:1.75rem">${I('bi-arrow-right')}</span><div class="field" style="margin:0"><label style="margin-top:0">New year set</label><input class="input" value="2027" style="width:6em"/></div><div class="field" style="margin:0"><label style="margin-top:0">Pin data standard</label><select class="input"><option>DS 5.2 (same — straight copy)</option><option>DS 6.0 (mapping required)</option></select></div></div>
+  <div class="sm muted" style="margin-bottom:1rem">Creates the new year set first, then clones published records into one draft change request. Each family's registry rule decides what changes: school-year fields rewritten, year-less resources cloned unchanged, fiscal-year keys handled per overlay. Crossing a standard applies the hand-written mapping; unmapped required fields become item errors.</div>
+  <table class="sbaa"><thead><tr><th>Family</th><th>Records</th><th>Roll-forward rule</th><th>Mapping</th></tr></thead><tbody>${families.map((f,i) => `<tr><td>${I(f.icon)} &nbsp;${f.label}</td><td>${counts[2026][i]}</td><td class="sm">${f.key === 'chartOfAccounts' ? 'fiscal-year key rewritten per overlay' : f.key === 'descriptors' || f.key === 'programs' ? 'year-less — cloned unchanged' : 'school-year fields rewritten'}</td><td>${T('ok','same standard — none')}</td></tr>`).join('')}</tbody></table>
+  <div style="margin-top:1.5rem"><button class="btn primary" ${can('edit')?'':'disabled'} onclick="toast('Year set 2027 created (DS 5.2 pinned). Roll-forward job queued → draft change request.')">${I('bi-arrow-repeat')} Create 2027 from 2026</button></div>` });
+
+screens.account = () => page({ title: 'Account', body: `<div class="attrs"><div class="field"><label class="view">Name</label>${me().name}</div><div class="field"><label class="view">Team</label>${partner.team}</div><div class="field"><label class="view">SBAA role</label>${T('', me().role)}</div><div class="field"><label class="view">Effective MDM privileges</label>${me().priv.map(p => `<span class="mono">team.mdm:${p}</span>`).join(' ')}</div><div class="field"><label class="view">Identity resolved by</label><span class="mono">POST /api/mdm/identity</span> (SBAA, service-to-service)</div></div>
+  ${section('Roles (one per membership)', `<table class="sbaa"><thead><tr><th>Role</th><th>Privileges</th><th>Note</th></tr></thead><tbody>${[['mdm-editor','read, edit',''],['mdm-approver','read, edit, approve','cannot approve a batch they contributed to'],['mdm-publisher','read, edit, publish','approves and applies manifests'],['mdm-admin','read, edit, approve, publish, configure','not exempt from separation of duties'],['machine user','read, edit, publish','can never approve']].map(r => `<tr><td class="mono">${r[0]}</td><td>${r[1]}</td><td class="sm muted">${r[2]}</td></tr>`).join('')}</tbody></table>`)}` });
+
+/* ======================= routing ======================= */
+function route() {
+  const h = (location.hash || '#/').slice(2).split('/');
+  if (h[0] === 'year') return h[2] ? screens.records(h[1], h[2]) : screens.year(h[1]);
+  if (h[0] === 'cr') return h[1] ? screens.cr(h[1]) : screens.crList();
+  if (h[0] === 'push') return screens.push();
+  if (h[0] === 'manifests') return h[1] ? screens.manifest(h[1]) : screens.manifests();
+  if (h[0] === 'runs') return h[1] ? screens.run(h[1]) : screens.runs();
+  if (h[0] === 'drift') return screens.drift();
+  if (h[0] === 'sources') return screens.sources();
+  if (h[0] === 'settings') return screens.settings();
+  if (h[0] === 'rollforward') return screens.rollforward();
+  if (h[0] === 'account') return screens.account();
+  return screens.home();
+}
+function crumbs() {
+  const h = (location.hash || '#/').slice(2).split('/'); const c = [['#/', 'Home']];
+  const yr = y => c.push([`#/year/${y}`, `School year ${y}`]);
+  if (h[0] === 'year') { yr(h[1]); if (h[2]) c.push([location.hash, families.find(f => f.key === h[2])?.label || h[2]]); }
+  if (h[0] === 'cr') { c.push(['#/cr', 'Change requests']); if (h[1]) c.push([location.hash, `#${h[1]}`]); }
+  if (h[0] === 'push') { yr(S.push.year); c.push([location.hash, 'Build manifest']); }
+  if (h[0] === 'manifests') { c.push(['#/manifests', 'Manifests']); if (h[1]) c.push([location.hash, `#${h[1]}`]); }
+  if (h[0] === 'runs') { c.push(['#/runs', 'Runs']); if (h[1]) c.push([location.hash, `#${h[1]}`]); }
+  if (h[0] === 'drift') c.push([location.hash, 'Drift']);
+  if (h[0] === 'sources') c.push([location.hash, 'Upstream sources']);
+  if (h[0] === 'settings') c.push([location.hash, 'Settings']);
+  if (h[0] === 'rollforward') { yr(2026); c.push([location.hash, 'Roll forward']); }
+  if (h[0] === 'account') c.push([location.hash, 'Account']);
+  return `<div class="crumbs">${c.map(([href, label], i) => `${i ? '<span class="sep">/</span>' : ''}<a href="${href}">${label}</a>`).join('')}</div>`;
+}
+const isOn = h => (location.hash || '#/') === h || ((location.hash || '#/').startsWith(h + '/') && h !== '#/');
+
+/* ======================= shell (SBAA chrome) ======================= */
+const navBtn = (href, icon, text, { depth = 0, on = isOn(href) } = {}) => `<a class="navbtn ${on ? 'on' : ''}" style="--d:${depth}em" href="${href}" title="${esc(text)}">${I(icon + (on ? '-fill' : ''))}<span>${esc(text)}</span></a>`;
+const navTree = (y, depth = 0) => {
+  const open = !!S.open[y.year];
+  return `<div class="navrow"><div class="caretwrap"><button class="caret ${open ? 'opened' : ''}" style="--d:${depth}em" onclick="S.open[${y.year}]=!S.open[${y.year}];render()" aria-label="open or close">${I('bi-caret-right-fill')}</button></div>${navBtn(`#/year/${y.year}`, 'bi-calendar3', `${y.year} · ${y.ds}`, { depth, on: (location.hash || '') === `#/year/${y.year}` })}</div>
+    ${open ? families.map(f => navBtn(`#/year/${y.year}/${f.key}`, f.icon, f.label, { depth: depth + 1 })).join('') : ''}`;
+};
+const shell = (content) => `<div class="layout">
+      <header class="appbar"><div class="left"><a href="#/"><img alt="logo" src="logo-sb.svg"/></a><span class="team">${partner.team}</span></div>
+        <div class="right"><span class="sm muted">Acting as</span><select class="userpick" onchange="S.userIx=+this.value;render()">${users.map((u,i) => `<option value="${i}" ${i===S.userIx?'selected':''}>${u.id} · ${u.role}</option>`).join('')}</select><a class="iconbtn" title="Help guide" href="https://docs.startingblocks.org/" target="_blank" rel="noopener noreferrer">${I('bi-question-lg')}</a><a class="iconbtn" style="width:auto;gap:0;padding:0" title="Account" href="#/account"><span class="avatar">${me().name.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}</span>${I('bi-caret-down', 'muted')}</a></div></header>
+      <main class="std">
+        <nav class="sbnav"><div class="resize"></div>
+          <div class="teamsel"><div class="input" title="Select a team (or global) context"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${partner.team}</span>${I('bi-chevron-down','muted')}</div></div>
+          ${navBtn('#/', 'bi-house-door', 'Home')}
+          ${navBtn('#/account', 'bi-person', 'Account')}
+          ${navBtn('#/cr', 'bi-file-earmark-diff', 'Change requests')}
+          ${navBtn('#/manifests', 'bi-file-lock2', 'Manifests')}
+          ${navBtn('#/runs', 'bi-upload', 'Runs')}
+          ${navBtn('#/drift', 'bi-activity', 'Drift')}
+          ${navBtn('#/sources', 'bi-plug', 'Upstream sources')}
+          ${navBtn('#/settings', 'bi-sliders', 'Settings')}
+          <h3>Year sets</h3>
+          <div class="envsearch"><div class="search-wrap">${I('bi-search')}<input class="input sm pill" placeholder="Search" style="padding-left:2.5rem"/></div></div>
+          <div class="scroll">${yearSets.slice().reverse().map(y => navTree(y)).join('')}</div>
+        </nav>
+        <div class="content"><div class="inner">${crumbs()}<div class="body">${content}</div><div class="copy">©2023-${new Date().getFullYear()} Education Analytics, Inc. All Rights Reserved</div></div></div>
+      </main></div>`;
+
+function render() { document.getElementById('app').innerHTML = shell(route()); }
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>

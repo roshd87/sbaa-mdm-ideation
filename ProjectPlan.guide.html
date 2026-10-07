@@ -1,0 +1,395 @@
+<!doctype html>
+<!--
+  MDM for StartingBlocks — project plan walkthrough.
+  Self-contained slide deck for a group walkthrough. Open in a browser.
+  Keys: → / Space next, ← prev, Home/End, F fullscreen, P print (all slides).
+  Sources: ProjectScope.md, ProjectPlan.md, ImplementationPlan.md (same folder).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>MDM for StartingBlocks — Plan walkthrough</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{--p900:#003029;--p800:#004942;--p700:#00615D;--p600:#007878;--p500:#298F7B;--p100:#CCE6CC;--p50:#F5FAF5;--navy:#004263;
+    --g50:#F7FAFC;--g100:#EDF2F7;--g200:#E2E8F0;--g300:#CBD5E0;--g500:#718096;--g600:#4A5568;--g700:#2D3748;--g800:#1A202C;
+    --green:#22543D;--greenbg:#C6F6D5;--yellow:#744210;--yellowbg:#FEFCBF;--red:#822727;--redbg:#FED7D7;--blue:#2A4365;--bluebg:#BEE3F8;--purple:#44337A;--purplebg:#E9D8FD}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font-family:'IBM Plex Sans',sans-serif;color:var(--g800);background:var(--g100);font-size:clamp(14px,1.3vw,19px);line-height:1.45}
+  .deck{height:100%;display:flex;flex-direction:column}
+  .slide{display:none;flex:1;flex-direction:column;padding:4vh 6vw 10vh;max-width:1400px;width:100%;margin:0 auto}
+  .slide.on{display:flex}
+  .slide>header{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid var(--p600);padding-bottom:.4em;margin-bottom:1.1em;gap:1em}
+  h1{font-size:2.1em;margin:0;color:var(--p900);font-weight:700}
+  h2{font-size:1.05em;margin:0;color:var(--g600);font-weight:500;text-align:right}
+  h3{font-size:1em;margin:.9em 0 .35em;color:var(--p700);font-weight:600}
+  .kicker{text-transform:uppercase;letter-spacing:.12em;font-size:.7em;color:var(--p600);font-weight:600}
+  .muted{color:var(--g600)}.sm{font-size:.85em}.mono{font-family:ui-monospace,Consolas,monospace;font-size:.9em;background:var(--g50);padding:0 .3em;border-radius:4px}
+  .cols{display:grid;gap:1.3em}.cols2{grid-template-columns:1fr 1fr}.cols3{grid-template-columns:repeat(3,1fr)}.cols4{grid-template-columns:repeat(4,1fr)}
+  .card{background:#fff;border:1px solid var(--g200);border-radius:8px;padding:.9em 1.1em;box-shadow:0 4px 6px -2px rgba(0,0,0,.05)}
+  .card h3{margin-top:0}
+  ul,ol{margin:.3em 0;padding-left:1.2em}li{margin:.22em 0}
+  .tag{display:inline-block;border-radius:6px;padding:0 .5em;font-size:.72em;font-weight:600;font-family:ui-monospace,Consolas,monospace;background:var(--g100);color:var(--g800);vertical-align:middle}
+  .tag.green{background:var(--greenbg);color:var(--green)}.tag.yellow{background:var(--yellowbg);color:var(--yellow)}.tag.red{background:var(--redbg);color:var(--red)}.tag.blue{background:var(--bluebg);color:var(--blue)}.tag.purple{background:var(--purplebg);color:var(--purple)}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:.88em}th,td{text-align:left;padding:.45em .8em;border-bottom:1px solid var(--g200);vertical-align:top}th{background:var(--g100);font-size:.72em;text-transform:uppercase;letter-spacing:.05em;color:var(--g600)}
+  .timeline{display:grid;grid-template-columns:repeat(5,1fr);gap:.6em;margin-top:.8em}
+  .stage{background:#fff;border:1px solid var(--g200);border-top:6px solid var(--p600);border-radius:8px;padding:.8em 1em;cursor:pointer;transition:transform .15s}
+  .stage:hover{transform:translateY(-3px)}
+  .stage .n{font-size:2em;font-weight:700;color:var(--p600);line-height:1}
+  .stage.s0{border-top-color:var(--navy)}.stage.s0 .n{color:var(--navy)}.stage.s4{border-top-color:#6b46c1;border-style:dashed}.stage.s4 .n{color:#6b46c1}
+  .stage b{display:block;margin:.3em 0 .2em}
+  .flow{display:flex;align-items:stretch;gap:.4em;flex-wrap:wrap;margin:.8em 0}
+  .flow .step{flex:1;min-width:9em;background:#fff;border:1px solid var(--g200);border-radius:8px;padding:.65em .8em;position:relative}
+  .flow .step+.step::before{content:'→';position:absolute;left:-.75em;top:50%;transform:translateY(-50%);color:var(--p600);font-weight:700}
+  .flow .step b{display:block;color:var(--p700)}
+  .dep{display:grid;grid-template-columns:1fr auto 1fr;gap:.4em 1em;align-items:center;font-size:.9em}
+  .dep .node{background:#fff;border:1px solid var(--g200);border-left:4px solid var(--p600);border-radius:6px;padding:.4em .7em}
+  .dep .arr{color:var(--p600);font-weight:700}
+  .ws{display:grid;grid-template-columns:9em 1fr;gap:.3em 1em;font-size:.88em}
+  .ws dt{font-weight:600;color:var(--p700)}.ws dd{margin:0}.ws li{margin:.12em 0}
+  .contract{border-left:4px solid var(--p600)}
+  .contract b{color:var(--p800)}
+  .prose{border-left:4px solid var(--g300);padding-left:.8em;color:var(--g700);font-style:italic}
+  .check{display:inline-flex;width:1.5em;height:1.5em;border-radius:50%;background:var(--p600);color:#fff;align-items:center;justify-content:center;font-weight:700;font-size:.8em;margin-right:.5em;flex:none}
+  .li{display:flex;gap:.3em;align-items:flex-start;margin:.45em 0}
+  footer.bar{position:fixed;left:0;right:0;bottom:0;height:7vh;min-height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 6vw;background:#fff;border-top:1px solid var(--g200);font-size:.8em;color:var(--g600)}
+  footer .dots{display:flex;gap:.4em}footer .dots span{width:.6em;height:.6em;border-radius:50%;background:var(--g300);cursor:pointer}footer .dots span.on{background:var(--p600)}
+  footer button{font:inherit;border:1px solid var(--g300);background:#fff;border-radius:6px;padding:.3em .8em;cursor:pointer;color:var(--g700)}footer button:hover{background:var(--g100)}
+  .logo{display:flex;align-items:center;gap:.5em;font-weight:700;color:var(--p900)}.logo svg{height:1.4em}
+  .title-slide{justify-content:center;align-items:flex-start}
+  .title-slide h1{font-size:3.3em;line-height:1.1}
+  .title-slide .sub{font-size:1.25em;color:var(--g600);margin:.6em 0 1.5em;max-width:28em}
+  @media print{body{background:#fff;font-size:12px}.slide{display:flex!important;page-break-after:always;padding:2em;min-height:100vh}footer.bar{display:none}.stage:hover{transform:none}}
+  body.print .slide{display:flex;page-break-after:always;min-height:100vh}body.print footer.bar{display:none}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+<!-- 1 Title -->
+<section class="slide title-slide">
+  <div class="logo"><svg viewBox="0 0 64 36"><path d="M38 0h-19v18l16 17h38z" fill="#007978"/><path d="M19 0H0v35h38V18z" fill="#11b9a3"/><path d="M38 35h-16l16-17z" fill="#004263"/></svg>StartingBlocks</div>
+  <div class="kicker" style="margin-top:2em">Project plan walkthrough</div>
+  <h1>Master Data Management<br/>for StartingBlocks</h1>
+  <p class="sub">A partner-level MDM that manages multi-year Ed-Fi master data and pushes it — through the ODS/API only — into tagged StartingBlocks environments.</p>
+  <p class="muted sm">Sources: <span class="mono">ProjectScope.md</span> · <span class="mono">ProjectPlan.md</span> (five stages, one page) · <span class="mono">ImplementationPlan.md</span> (76 steps) · <span class="mono">mockup/mdm-prototype.html</span> (clickable UI)</p>
+  <p class="muted sm">Stage content follows ASD-STE100: short, active, one instruction per sentence. Italic blocks are normal prose.</p>
+  <p class="muted sm">Navigate with → ← keys · F fullscreen · P print all</p>
+</section>
+
+<!-- 2 What / not -->
+<section class="slide">
+  <header><h1>What MDM does</h1><h2>and what it does not do</h2></header>
+  <div class="cols cols2">
+    <div class="card">
+      <h3>MDM does</h3>
+      <ul>
+        <li>Manage seven resource families for each partner and each school year: <b>EdOrgs, Descriptors, Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings</b>.</li>
+        <li>Keep each year as its own set. Roll a year forward. Map records across Ed-Fi versions.</li>
+        <li>Route each push to the correct ODSs with the SBAA tags <span class="mono">School_Year</span>, <span class="mono">EA_Tenant</span>, <span class="mono">Environment_Type</span>. Block incompatible targets.</li>
+        <li>Write only through the ODS/API. The Ed-Fi rules block unsafe changes.</li>
+        <li>Review each change (draft → review → publish). Approve each push as an immutable manifest, then apply.</li>
+        <li>Pull from a partner's upstream system of record through its HTTP API.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>MDM does not</h3>
+      <ul>
+        <li>Touch student, staff, or transactional data.</li>
+        <li>Create or delete SBEs, tenants, or ODSs. SBAA does this.</li>
+        <li>Write SQL into an ODS.</li>
+        <li>Push on a schedule. A person approves and applies each manifest.</li>
+        <li>Delete anything it did not explicitly tombstone. Set differences never produce deletes.</li>
+        <li>Keep its own users, roles, or ODS credentials. SBAA owns all three.</li>
+      </ul>
+      <h3>Where it lives</h3>
+      <p class="sm">Two deployables, <span class="mono">packages/mdm-api</span> and <span class="mono">packages/mdm-fe</span>, in the SBAA monorepo. Own Postgres. Same IdP, teams, roles, and UI library as SBAA.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3 Pipeline -->
+<section class="slide">
+  <header><h1>How a change travels</h1><h2>one pipeline · each stage adds to it · no stage rewires it</h2></header>
+  <div class="flow">
+    <div class="step"><b>Intake</b>Import from an ODS. Import a file. Edit in the UI. Pull from upstream. All land in a draft.</div>
+    <div class="step"><b>Change request</b>One batch of edits in one year set. Submit freezes the batch.</div>
+    <div class="step"><b>Review</b>An approver who did not contribute reads one diff. Approve or reject the batch.</div>
+    <div class="step"><b>Published</b>JSONB store + version history, in the year set's pinned Ed-Fi shape.</div>
+    <div class="step"><b>Targets</b>Resolve from SBAA tags over ODSs the team owns. Fingerprint each. Block incompatible ones.</div>
+    <div class="step"><b>Manifest</b>Read the ODS. Compute create / update by owned fields. Deletes only from approved tombstones. Freeze targets, payloads, ETags.</div>
+    <div class="step"><b>Apply</b>A publisher applies one manifest through the ODS/API in dependency order, with <span class="mono">If-Match</span>.</div>
+    <div class="step"><b>Run</b>Record each outcome: ok, failed, skipped, conflict, uncertain. Re-run finishes the same manifest.</div>
+  </div>
+  <div class="cols cols3" style="margin-top:.4em">
+    <div class="card sm"><h3>SBAA provides</h3>Teams, roles, tags, topology, one MDM application per ODS, and custody of its credentials. New endpoints: identity, targets, application ensure, credential read and rotation, namespaces.</div>
+    <div class="card sm"><h3>mdm-api provides</h3>Year sets, records, managed scopes, change requests, manifests, runs, and the drift scan — on its own database and job queue. It calls SBAA with a least-privilege service identity.</div>
+    <div class="card sm"><h3>Tooling provides</h3><span class="mono">sbaa_api_client</span> gets MDM wrappers and an <span class="mono">mdm_api_base_url</span> setting. Scripts can import, build manifests, and apply without the UI.</div>
+  </div>
+</section>
+
+<!-- 4 Safety contracts -->
+<section class="slide">
+  <header><h1>Four contracts that gate Stage 0</h1><h2>what an adversarial review found, and what we committed to</h2></header>
+  <div class="cols cols2">
+    <div class="card contract"><h3>Identity</h3><p class="sm">SBAA exposes one service-only endpoint that turns a verified login (or a machine client) into an SBAA user and its per-team MDM privileges. No email lookups. The MDM service identity holds three narrow privileges and never acts as a user. Every job and audit row carries the acting user.</p></div>
+    <div class="card contract"><h3>Credential custody</h3><p class="sm">SBAA stores each MDM application's ODS/API key and secret, encrypted at rest, one row per ODS. Only the service identity can read or rotate them. People see status, never secrets. <span class="mono">mdm-api</span> keeps credentials in memory only.</p></div>
+    <div class="card contract"><h3>Managed scope</h3><p class="sm">MDM may only create, update, or tombstone records inside an explicit scope: a partner-owned descriptor namespace, an EdOrg subtree, or all. Other vendors' and the Alliance's descriptors are imported read-only. Deletes exist only as approved tombstones.</p></div>
+    <div class="card contract"><h3>Immutable manifest</h3><p class="sm">Approval of a change request is compare-and-swap on every item's base revision. Approval of a push produces a frozen manifest: published revision, target fingerprints, ordered operations with full payloads, observed ETags. Apply consumes one manifest, re-checks each target, writes with <span class="mono">If-Match</span>, and records a <span class="tag yellow">conflict</span> on 412.</p></div>
+  </div>
+  <p class="prose sm" style="margin-top:1em">Without these, the first version would have looked like it worked: a login that had to copy SBAA's user tables, a secret that vanished on the first restart, deletes computed from "whatever the ODS has that we don't", and a diff that could overwrite a SIS change made after the preview.</p>
+</section>
+
+<!-- 5 Stages -->
+<section class="slide">
+  <header><h1>Five stages</h1><h2>click a stage for its detail · sizes are T-shirt, not dates</h2></header>
+  <div class="timeline">
+    <div class="stage s0" onclick="goTo(5)"><div class="n">0</div><b>Foundations</b><span class="sm muted">SBAA endpoints and roles, packages, schema, auth, local dev, deploy</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
+    <div class="stage s1" onclick="goTo(6)"><div class="n">1</div><b>Descriptors slice</b><span class="sm muted">The full pipeline. One family. EA's internal pilot tenant.</span><div style="margin-top:.5em"><span class="tag">L</span></div></div>
+    <div class="stage s2" onclick="goTo(7)"><div class="n">2</div><b>EdOrgs</b><span class="sm muted">Tree UI, mixed ownership, record-level dependency graph. First external partner.</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
+    <div class="stage s3" onclick="goTo(8)"><div class="n">3</div><b>Remaining + years</b><span class="sm muted">Five families, roll-forward, version mapping, file + upstream intake</span><div style="margin-top:.5em"><span class="tag">L</span></div></div>
+    <div class="stage s4" onclick="goTo(9)"><div class="n">4</div><b>Stretch: drift</b><span class="sm muted">Opt-in scheduled drift scan</span><div style="margin-top:.5em"><span class="tag">S</span> <span class="tag purple">any time after 1</span></div></div>
+  </div>
+  <h3>Exit criteria</h3>
+  <table>
+    <tr><th style="width:9em">Stage</th><th>The stage is complete when…</th></tr>
+    <tr><td><b>0</b> Foundations</td><td><span class="mono">mdm-api</span> runs in dev. It authenticates an SBAA user through the identity contract. It resolves the pilot team's owned, tagged ODSs with fingerprints. Credentials for one ODS survive a restart without rotation.</td></tr>
+    <tr><td><b>1</b> Descriptors</td><td>The pilot imports Descriptors from an ODS, approves a change request, builds a manifest, and applies it to a dev ODS. Outcomes — including a conflict and an uncertain case — show in the UI and through <span class="mono">sbaa_api_client</span>.</td></tr>
+    <tr><td><b>2</b> EdOrgs</td><td>MDM pushes the EdOrg hierarchy in dependency order. The manifest preview shows vendor-owned fields. MDM does not overwrite them. A failed child delete leaves its parent.</td></tr>
+    <tr><td><b>3</b> Remaining</td><td>All seven families are pushable. A 2024 year set from the 6.x/DS4 sandbox rolls into DS5 and pushes. File intake and upstream intake land as change requests.</td></tr>
+    <tr><td><b>4</b> Drift</td><td>The pilot receives a scheduled drift report. The UI flags the drifted records.</td></tr>
+  </table>
+</section>
+
+<!-- 6 Stage 0 -->
+<section class="slide">
+  <header><h1><span style="color:var(--navy)">Stage 0</span> — Foundations</h1><h2>build what every later stage assumes · <span class="tag">M</span></h2></header>
+  <dl class="ws">
+    <dt>SBAA API</dt><dd><ul><li>Add the roles <span class="mono">mdm-editor</span>, <span class="mono">mdm-approver</span>, <span class="mono">mdm-publisher</span>, <span class="mono">mdm-admin</span> by migration.</li><li>Add the identity endpoint. Add application ensure per ODS with SBAA-held credentials. Add the service-only credential read and rotation.</li><li>Add owned-ODS target listing with fingerprints. Add the partner namespace setting.</li></ul></dd>
+    <dt>mdm-api</dt><dd><ul><li>Create the NestJS package with its own TypeORM datasource and its own pg-boss schema.</li><li>Use a host-scoped cookie-session BFF. Resolve identity through SBAA. Use bearer tokens only for service calls. Reject cross-origin mutations.</li><li>Create year sets, records, versions, managed scopes, change requests with contributors, change items, manifests, runs, and run records.</li><li>Build the registry from the pinned OpenAPI document, one entry per concrete descriptor endpoint.</li></ul></dd>
+    <dt>mdm-fe</dt><dd><ul><li>Create the React package on <span class="mono">common-ui</span>. Reproduce the SBAA chrome. Wire the login.</li></ul></dd>
+    <dt>Infra</dt><dd><ul><li>Add the MDM Postgres, the Keycloak <span class="mono">mdm</span> client with the API callback, and the Nx serve targets to local dev.</li><li>Create the deployed database, pipeline, and Secrets Manager access.</li></ul></dd>
+  </dl>
+  <p class="prose sm" style="margin-top:.9em">Stage 0 is bigger than a scaffold because the four contracts live here: SBAA must ship the identity endpoint, credential custody, and roles before any MDM code can authenticate or push. The resource registry also starts here so every later job is generic from day one.</p>
+</section>
+
+<!-- 7 Stage 1 -->
+<section class="slide">
+  <header><h1>Stage 1 — Descriptors slice</h1><h2>the full pipeline for the simplest family · EA internal pilot · <span class="tag">L</span></h2></header>
+  <div class="cols cols2">
+    <dl class="ws">
+      <dt>mdm-api</dt><dd><ul><li>Add year sets. Fingerprint each target. Block incompatible targets.</li><li>Add the import job with count-drift detection and write-shape normalisation. Write the result as a change request inside managed scope.</li><li>Add the change-request lifecycle: base revisions, frozen batches, CAS approval, contributor-based separation of duties.</li><li>Build immutable manifests: owned-field updates, tombstone-only deletes, observed ETags, target fingerprints.</li><li>Apply one manifest at a time with <span class="mono">If-Match</span>. Suspend a target whose fingerprint changed. Order by <span class="mono">/dependencies</span>.</li><li>Record ok, failed, skipped, conflict, uncertain. Re-run the same manifest only. Reconcile uncertain by natural key first.</li></ul></dd>
+      <dt>mdm-fe</dt><dd><ul><li>Build the inbox Home and the Descriptor editor.</li><li>Build the review screen with one batch diff.</li><li>Build target confirmation, manifest preview, and run results.</li></ul></dd>
+    </dl>
+    <div>
+      <dl class="ws">
+        <dt>sbaa_api_client</dt><dd><ul><li>Add <span class="mono">mdm_api_base_url</span>.</li><li>Add year-set, target, record, change-request, import, manifest, apply, run, and re-run wrappers.</li></ul></dd>
+        <dt>Validation</dt><dd><ul><li>Record HTTP fixtures (DS 5.2 with and without TPDM). Run one nightly end-to-end test against the pilot dev ODS, including a conflict case. Do not run an ODS/API in CI.</li><li>Run bulk reads in the agreed writer-quiescence window. Run the review-UX UAT.</li></ul></dd>
+      </dl>
+      <p class="prose sm" style="margin-top:.9em">Descriptors go first because they are flat, fully MDM-owned, version-stable and dependency-light — they touch every layer with the least UI, and they surface feedback on the review workflow, the riskiest UX decision, earliest.</p>
+      <div class="card sm contract" style="margin-top:.9em"><span class="check">✓</span><b>Pilot:</b> EA's internal tenant on ODS/API 7.3 / Data Standard 5.2 with TPDM, MDM application unprofiled, current school year.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 Stage 2 -->
+<section class="slide">
+  <header><h1>Stage 2 — EdOrgs</h1><h2>a hierarchy whose fields other vendors also write · first external partner · <span class="tag">M</span></h2></header>
+  <div class="cols cols2">
+    <dl class="ws">
+      <dt>SBAA API</dt><dd><ul><li>Extend the claimset to the EdOrg resources. Re-ensure each application.</li></ul></dd>
+      <dt>mdm-api</dt><dd><ul><li>Add the EdOrg registry entries. Give each subtype its own natural key: <span class="mono">schoolId</span>, <span class="mono">localEducationAgencyId</span>, <span class="mono">educationServiceCenterId</span>…</li><li>Build the EdOrg tree read-model. Add the mixed ownership lists. Show non-owned fields for visibility only.</li><li>Add record-level reference edges. Skip dependents of failures. Block a parent delete when a child delete fails.</li><li>Create = full stored payload. Update = owned paths replaced in the target's current representation.</li></ul></dd>
+      <dt>mdm-fe</dt><dd><ul><li>Build the EdOrg tree editor. Mark owned and non-owned fields in the manifest preview.</li></ul></dd>
+      <dt>Docs</dt><dd><ul><li>Write the claimset hard-enforcement guidance for fully-owned resources only.</li></ul></dd>
+    </dl>
+    <div>
+      <h3 style="margin-top:0">Field ownership</h3>
+      <table class="sm">
+        <tr><th>Field</th><th>Owner</th><th>On update</th><th>On create</th></tr>
+        <tr><td>Natural key (<span class="mono">schoolId</span>…)</td><td><span class="tag green">MDM</span></td><td>Immutable</td><td>Sent</td></tr>
+        <tr><td><span class="mono">nameOfInstitution</span></td><td><span class="tag green">MDM</span></td><td>MDM writes it. Drift is overwritten.</td><td>Sent</td></tr>
+        <tr><td><span class="mono">webSite</span>, addresses…</td><td><span class="tag">SIS vendor</span></td><td>Preserved from the target. Shown, never written.</td><td>Sent from the stored import</td></tr>
+      </table>
+      <p class="prose sm" style="margin-top:.9em">Ed-Fi PUT replaces the whole resource, so "don't touch vendor fields" means reading the target's current record, swapping only the owned paths, and sending the merge — conditioned on the ETag we read.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 9 Stage 3 -->
+<section class="slide">
+  <header><h1>Stage 3 — Remaining families, years, intake</h1><h2>breadth, then time · <span class="tag">L</span></h2></header>
+  <div class="cols cols2">
+    <dl class="ws">
+      <dt>SBAA API</dt><dd><ul><li>Extend the claimset to Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings.</li></ul></dd>
+      <dt>mdm-api</dt><dd><ul><li>Add the registry entries for every concrete endpoint in the five families. Certifications require TPDM in the target fingerprint.</li><li>Add the roll-forward job N → N+1 with per-resource rules: which year fields change, which year-less resources clone unchanged, how fiscal-year keys are treated.</li><li>Write the 6.x/DS4 → 7.x/DS5 field mapping.</li><li>Add file import: Ed-Fi JSON for all; CSV for Descriptors and flat EdOrg attributes.</li><li>Add the HTTP-API upstream connector: team-bound secrets, allow-listed HTTPS origins, no cross-origin credential forwarding, bounded responses. Pull on demand. Write a change request.</li></ul></dd>
+      <dt>mdm-fe</dt><dd><ul><li>Build the schema-driven list and form with a schema-form library: nested objects, arrays, reference pickers.</li><li>Build roll-forward, file upload, and upstream-source screens.</li></ul></dd>
+      <dt>sbaa_api_client</dt><dd><ul><li>Add roll-forward, file-import, upstream-pull wrappers.</li></ul></dd>
+    </dl>
+    <div>
+      <h3 style="margin-top:0">Roll-forward</h3>
+      <div class="flow sm" style="margin-top:.3em">
+        <div class="step"><b>2026 · DS5</b>Published year set</div>
+        <div class="step"><b>Copy</b>Same standard. Apply each resource's roll-forward rule.</div>
+        <div class="step"><b>2027 · DS5</b>New year set, draft change request</div>
+      </div>
+      <div class="flow sm">
+        <div class="step"><b>2024 · DS4</b>EA-hosted 6.x sandbox</div>
+        <div class="step"><b>Map</b>Apply the DS4→DS5 mapping. Surface unmapped required fields.</div>
+        <div class="step"><b>2025 · DS5</b>New year set, draft change request</div>
+      </div>
+      <div class="card sm contract"><span class="check">✓</span><b>Decided:</b> HTTP-API upstream sources only in v1. Direct database access is deferred. The DS4 proof uses an EA-hosted 6.x sandbox seeded from recorded fixtures, not a partner's live legacy ODS.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 Stage 4 -->
+<section class="slide">
+  <header><h1>Stage 4 — Stretch: drift scanning</h1><h2>the manifest build, read-only, on a timer · <span class="tag">S</span> · <span class="tag purple">any time after Stage 1</span></h2></header>
+  <div class="cols cols2">
+    <dl class="ws">
+      <dt>mdm-api</dt><dd><ul><li>Add a scheduled per-partner scan that reuses the manifest build in read-only mode. Persist drift reports.</li><li>Add per-partner settings: opt-in, schedule, scope. Add an optional approver notification.</li></ul></dd>
+      <dt>mdm-fe</dt><dd><ul><li>Flag drifted records. Build the drift report screen.</li></ul></dd>
+      <dt>Docs</dt><dd><ul><li>Write the off-peak schedule guidance. Measure the ODS read load.</li></ul></dd>
+    </dl>
+    <div class="card">
+      <h3>Why it can wait</h3>
+      <ul class="sm">
+        <li>The scan is read-only. It never produces an approved manifest. It never applies.</li>
+        <li>It reuses Stage 1's manifest builder. It adds a schedule and a report table only.</li>
+        <li>Each scan reads every ODS once. Keep it opt-in and off-peak.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 11 Release order -->
+<section class="slide">
+  <header><h1>Release order</h1><h2>two deployables, one sequence</h2></header>
+  <div class="flow">
+    <div class="step"><b>1 · SBAA</b>Migration: roles, credential table. Privileges. <span class="mono">/mdm</span> endpoints. Backward compatible; no MDM dependency.</div>
+    <div class="step"><b>2 · Provision</b>Ensure one application per pilot ODS. Verify the claimset fingerprint and effective access with one GET.</div>
+    <div class="step"><b>3 · MDM</b>Schema migrations. Own pg-boss schema on the MDM connection. Workers. Queue payloads carry a schema version; old workers reject newer payloads.</div>
+    <div class="step"><b>4 · Enable</b>Feature flag per team. Year sets cannot be created without it.</div>
+  </div>
+  <div class="cols cols2" style="margin-top:.6em">
+    <div class="card sm"><h3>Rollback</h3>MDM workers stop independently. SBAA endpoints are additive. A claimset version bump always ships in step 2 before the MDM release that needs it.</div>
+    <div class="card sm"><h3>Capability checks run first</h3>Readiness rejects a missing claimset version, a profiled application, or an incompatible fingerprint before a push starts — never halfway through one.</div>
+  </div>
+</section>
+
+<!-- 12 Dependencies -->
+<section class="slide">
+  <header><h1>What blocks what</h1><h2>sequence constraints</h2></header>
+  <div class="dep">
+    <div class="node">SBAA identity endpoint, roles, credential custody <span class="muted sm">Stage 0</span></div><div class="arr">→ blocks</div><div class="node">All mdm-api authentication and push work</div>
+    <div class="node">Pilot tenant tags its ODSs · quiescence window agreed</div><div class="arr">→ blocks</div><div class="node">Stage 1 target resolution and bulk imports</div>
+    <div class="node">Change-request lifecycle</div><div class="arr">→ blocks</div><div class="node">Every intake path. All intake lands as a change request.</div>
+    <div class="node">Manifest builder <span class="muted sm">Stage 1</span></div><div class="arr">→ blocks</div><div class="node">Apply and drift scanning</div>
+    <div class="node">Resource registry <span class="muted sm">Stage 0</span></div><div class="arr">→ enables</div><div class="node">Stage 3 adds families as configuration, not code</div>
+    <div class="node">Roll-forward</div><div class="arr">→ blocks</div><div class="node">Version mapping</div>
+    <div class="node">Claimset extension for a family</div><div class="arr">→ blocks</div><div class="node">Pushing that family</div>
+    <div class="node">6.x sandbox stood up from fixtures</div><div class="arr">→ blocks</div><div class="node">Stage 3 cross-version exit</div>
+  </div>
+</section>
+
+<!-- 13 Risks -->
+<section class="slide">
+  <header><h1>Risks and mitigations</h1><h2>what can go wrong, and what we do about it</h2></header>
+  <table>
+    <tr><th style="width:38%">Risk</th><th>Mitigation</th></tr>
+    <tr><td><b>Untagged ODSs are invisible to MDM.</b></td><td>Audit the tags before each stage. Show the target list before each push. Block incompatible targets.</td></tr>
+    <tr><td><b>The change-request UI is the largest and riskiest UX.</b></td><td>Validate it with the internal pilot in Stage 1. Scale it after that.</td></tr>
+    <tr><td><b>Partial pushes occur.</b> The ODS/API is non-transactional.</td><td>Persist per-operation outcomes. Record skip reasons. Re-run the same manifest only. Never pretend to roll back.</td></tr>
+    <tr><td><b>Cross-version mappings are hand-maintained.</b></td><td>Write them only for the version pairs StartingBlocks runs. Apply them only at roll-forward.</td></tr>
+    <tr><td><b>Writer quiescence is an agreement, not a guarantee.</b></td><td>Count-drift abort is the safety net. Revisit snapshot reads with the first external partner.</td></tr>
+    <tr><td><b>The first external partner may run a different release or profiles.</b></td><td>The fingerprint check blocks, never warns.</td></tr>
+    <tr><td><b>Claimsets cannot lock single fields.</b></td><td>Document the limit. Use the ownership merge for EdOrgs.</td></tr>
+  </table>
+</section>
+
+<!-- 14 Future -->
+<section class="slide">
+  <header><h1>Future scope</h1><h2>not v1 — recorded so v1 keeps the seams open</h2></header>
+  <div class="cols cols2">
+    <div class="card">
+      <h3>Standalone MDM for data outside StartingBlocks</h3>
+      <p class="sm">Manage master data for Ed-Fi targets StartingBlocks does not host: a district's self-hosted ODS/API, another vendor's hosted instance, a state or collaborative ODS.</p>
+      <h3>What changes</h3>
+      <ul class="sm">
+        <li>Targets come from an MDM-owned registry, not SBAA tags.</li>
+        <li>Credentials are MDM-owned, entered by the partner's admin.</li>
+        <li>Identity is MDM-owned or federated; delegation to SBAA stays for partners who are SBAA teams.</li>
+        <li>Target health check replaces tag discipline.</li>
+      </ul>
+      <h3>What does not change</h3>
+      <p class="sm">Records, change requests, manifests, runs, ownership, roll-forward, drift — all take a list of targets and never ask where it came from.</p>
+    </div>
+    <div>
+      <div class="card sm" style="margin-bottom:.8em"><h3>Seams v1 keeps</h3><ul><li>A <span class="mono">TargetProvider</span> interface with one implementation today.</li><li>Target identity is URLs + fingerprint; SBAA ids live under <span class="mono">provider</span>.</li><li>The authorization guard reads a privilege map and nothing else knows SBAA produced it.</li><li>Manifests and runs take targets, never ODS ids.</li></ul></div>
+      <div class="card sm"><h3>Also deferred</h3><ul><li>Direct-database upstream sources.</li><li>Embedding <span class="mono">mdm-fe</span> inside the SBAA shell.</li><li>Per-partner field-ownership overrides.</li><li>Effective-dated (bitemporal) records.</li><li>Non-Ed-Fi targets — the Ed-Fi API is the safety model this design depends on.</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- 15 Where we are -->
+<section class="slide">
+  <header><h1>Where we are</h1><h2>every decision closed · next steps</h2></header>
+  <div class="cols cols2">
+    <div>
+      <h3 style="margin-top:0">Decided</h3>
+      <div class="card contract" style="margin-bottom:.7em"><span class="check">✓</span><b>Pilot:</b> EA's internal tenant, ODS/API 7.3 / DS 5.2 with TPDM, unprofiled, current school year. External partner joins at Stage 2.</div>
+      <div class="card contract" style="margin-bottom:.7em"><span class="check">✓</span><b>Cross-version proof:</b> EA-hosted 6.x sandbox seeded from fixtures.</div>
+      <div class="card contract" style="margin-bottom:.7em"><span class="check">✓</span><b>Bulk reads:</b> writer-quiescence window; count drift aborts the read.</div>
+      <div class="card contract" style="margin-bottom:.7em"><span class="check">✓</span><b>Upstream sources:</b> HTTP API only in v1.</div>
+      <div class="card contract"><span class="check">✓</span><b>UI shell:</b> SBAA chrome, exactly, with a workflow inbox as Home. See <span class="mono">mockup/mdm-prototype.html</span>.</div>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Next steps</h3>
+      <ol class="sm">
+        <li>Open the Stage 0 tickets by workstream (SBAA API, mdm-api, mdm-fe, infra).</li>
+        <li>Tag the internal pilot tenant's ODSs. Agree the quiescence window.</li>
+        <li>Record the DS 5.2 fixtures from the pilot. Stand up the 6.x sandbox for Stage 3.</li>
+        <li>Hold the Stage 1 kickoff when Stage 0 exits.</li>
+      </ol>
+      <h3>Read more</h3>
+      <p class="sm"><span class="mono">ProjectScope.md</span> — every decision with its rationale.<br/><span class="mono">ProjectPlan.md</span> — one page, by stage.<br/><span class="mono">ImplementationPlan.md</span> — 76 steps against the repo, with checks.</p>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer class="bar">
+  <div class="logo sm"><svg viewBox="0 0 64 36"><path d="M38 0h-19v18l16 17h38z" fill="#007978"/><path d="M19 0H0v35h38V18z" fill="#11b9a3"/><path d="M38 35h-16l16-17z" fill="#004263"/></svg>MDM plan walkthrough</div>
+  <div class="dots" id="dots"></div>
+  <div><button onclick="prev()">←</button> <span id="counter"></span> <button onclick="next()">→</button> <button onclick="togglePrint()" title="P">print all</button></div>
+</footer>
+
+<script>
+const slides = [...document.querySelectorAll('.slide')];
+let i = Math.max(0, Math.min(slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+const dots = document.getElementById('dots');
+slides.forEach((_, k) => { const d = document.createElement('span'); d.onclick = () => goTo(k); dots.appendChild(d); });
+function show() {
+  slides.forEach((s, k) => s.classList.toggle('on', k === i));
+  [...dots.children].forEach((d, k) => d.classList.toggle('on', k === i));
+  document.getElementById('counter').textContent = `${i + 1} / ${slides.length}`;
+  history.replaceState(null, '', '#' + (i + 1));
+  window.scrollTo(0, 0);
+}
+function goTo(k) { i = Math.max(0, Math.min(slides.length - 1, k)); show(); }
+function next() { goTo(i + 1); } function prev() { goTo(i - 1); }
+function togglePrint() { document.body.classList.toggle('print'); }
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+  else if (e.key === 'Home') goTo(0); else if (e.key === 'End') goTo(slides.length - 1);
+  else if (e.key.toLowerCase() === 'f') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  else if (e.key.toLowerCase() === 'p') togglePrint();
+});
+window.addEventListener('hashchange', () => { const n = (parseInt(location.hash.slice(1), 10) || 1) - 1; if (n !== i) goTo(n); });
+show();
+</script>
+</body>
+</html>
