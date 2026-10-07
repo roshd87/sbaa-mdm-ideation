@@ -2,12 +2,13 @@
 <!--
   PROTOTYPE — THROWAWAY. Not production code.
 
-  Reflects the decision state of ProjectScope.md as of 2026-10-06 (all decisions closed):
+  Reflects the decision state of ProjectScope.md as of 2026-10-07 (Q1–Q26 closed):
   SBAA chrome with a workflow inbox as Home; year sets with a pinned data standard; managed scopes
   and partner namespaces; change requests with base revisions, frozen submit, CAS approval and
   contributor-based separation of duties; targets with compatibility fingerprints; immutable
   manifests applied with If-Match; run states ok/failed/skipped/conflict/uncertain; re-run of the
-  same manifest; HTTP-API upstream sources only; four single roles (switch user in the app bar).
+  same manifest; HTTP-API upstream sources only; four single roles (switch user in the app bar);
+  Courses opt-in per year set via an exact-EdOrg (edorg) scope.
 
   The shell reproduces SBAA's chrome 1:1 from startingblocks_admin_app/packages/fe/src/app/Layout
   (AppBar, resizable Nav + NavButton, StandardLayout main box, Breadcrumbs, PageTemplate +
@@ -182,14 +183,17 @@ const families = [
   { key: 'chartOfAccounts', label: 'Chart of Accounts', icon: 'bi-cash-stack', typed: false, owned: 'all', endpoints: ['chartOfAccounts','funds','programs (finance)','functions','objects','balanceSheets','sources','projects'] },
   { key: 'certifications', label: 'Certifications', icon: 'bi-award', typed: false, owned: 'all', ext: 'TPDM', endpoints: ['tpdm/certifications'] },
   { key: 'descriptorMappings', label: 'Descriptor Mappings', icon: 'bi-arrow-left-right', typed: false, owned: 'all', endpoints: ['descriptorMappings'] },
+  { key: 'courses', label: 'Courses', icon: 'bi-book', typed: false, owned: 'all', optIn: true, endpoints: ['courses'] },
 ];
-const counts = { 2024: [612,38,14,22,140,0,31], 2025: [634,40,15,24,142,9,33], 2026: [641,41,15,24,142,9,33] };
+const counts = { 2024: [612,38,14,22,140,0,31,0], 2025: [634,40,15,24,142,9,33,0], 2026: [641,41,15,24,142,9,33,1873] };
 
 const scopes = {
-  2026: [{ kind: 'namespace', value: 'uri://ea.startingblocks.org' }, { kind: 'namespace', value: 'uri://lakeside.org' }, { kind: 'edorgSubtree', value: 'LEA 255901 (Lakeside ISD)' }],
+  2026: [{ kind: 'namespace', value: 'uri://ea.startingblocks.org' }, { kind: 'namespace', value: 'uri://lakeside.org' }, { kind: 'edorgSubtree', value: 'LEA 255901 (Lakeside ISD)' }, { kind: 'edorg', res: 'courses', value: 'SEA 255950 (state course catalog)' }],
   2025: [{ kind: 'namespace', value: 'uri://lakeside.org' }, { kind: 'edorgSubtree', value: 'LEA 255901 (Lakeside ISD)' }],
   2024: [{ kind: 'namespace', value: 'uri://lakeside.org' }],
 };
+// Opt-in families (Courses) appear only in year sets with a scope for them.
+const famsFor = y => families.filter(f => !f.optIn || (scopes[y] || []).some(sc => sc.res === f.key));
 const inScope = ns => (scopes[2026] || []).some(sc => sc.kind === 'namespace' && ns.startsWith(sc.value));
 
 let descriptors = [
@@ -339,7 +343,7 @@ screens.year = (yr) => {
       <div class="field"><label class="view">Approved manifests</label>${approvedManifests(y.year).length}</div>
     </div>
     ${section('Resource families', `<table class="sbaa"><thead><tr><th>Family</th><th>Endpoints</th><th>Records</th><th>Ownership</th><th>UI</th><th></th></tr></thead><tbody>
-      ${families.map((f,i) => `<tr class="clickable" onclick="go('#/year/${y.year}/${f.key}')"><td>${I(f.icon)} &nbsp;${f.label}${f.ext ? ' ' + T('', f.ext) : ''}</td><td class="mono sm">${f.endpoints.slice(0,3).join(', ')}${f.endpoints.length > 3 ? ', …' : ''}</td><td>${counts[y.year][i]}</td><td>${f.owned === 'all' ? 'All paths MDM-owned' : 'Key + designated paths'}</td><td>${f.typed ? 'Purpose-built' : '<span class="muted">Schema-driven form</span>'}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>`)}
+      ${famsFor(y.year).map(f => `<tr class="clickable" onclick="go('#/year/${y.year}/${f.key}')"><td>${I(f.icon)} &nbsp;${f.label}${f.ext ? ' ' + T('', f.ext) : ''}</td><td class="mono sm">${f.endpoints.slice(0,3).join(', ')}${f.endpoints.length > 3 ? ', …' : ''}</td><td>${counts[y.year][families.indexOf(f)]}</td><td>${f.owned === 'all' ? 'All paths MDM-owned' + (f.optIn ? ' (in scope)' : '') : 'Key + designated paths'}</td><td>${f.typed ? 'Purpose-built' : '<span class="muted">Schema-driven form</span>'}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>`)}
     ${section('Change requests', changeRequests.filter(c => c.year === y.year).length ? `<table class="sbaa"><thead><tr><th>#</th><th>Title</th><th>Author</th><th>Items</th><th>Status</th></tr></thead><tbody>${changeRequests.filter(c => c.year === y.year).map(c => `<tr class="clickable" onclick="go('#/cr/${c.id}')"><td>${c.id}</td><td>${esc(c.title)}</td><td>${c.author}</td><td>${c.items.length}</td><td>${T(c.status)}${c.stale ? ' ' + T('stale') : ''}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">None</span>')}
     ${section('Targets (owned ODSs tagged School_Year=' + y.year + ')', `<table class="sbaa"><thead><tr><th>SB Environment</th><th>Ed-Fi Tenant</th><th>ODS</th><th>Fingerprint</th><th>Compatibility</th><th>MDM app</th></tr></thead><tbody>${ts.map(t => { const c = compat(t, y.year); return `<tr><td>${I('bi-hdd')} &nbsp;${t.sbe}</td><td>${I('bi-grid')} &nbsp;${t.tenant}</td><td class="mono">${t.ods}</td><td>${fpCell(t)}</td><td>${c.ok ? T('compatible') + (c.note ? ` <span class="sm muted">${c.note}</span>` : '') : T('blocked') + ` <span class="sm muted">${c.why}</span>`}</td><td>${t.app ? `${I('bi-key')} <span class="mono">${t.app}</span>` : '<span class="muted">none</span>'}</td></tr>`; }).join('')}</tbody></table>`)}` });
 };
@@ -356,7 +360,7 @@ screens.records = (yr, fam) => {
   const banner = draft ? `<div class="alert info" style="margin-bottom:1rem">${I('bi-info-circle-fill')}<div>Your edits collect in draft <a class="lnk" href="#/cr/${draft.id}">#${draft.id} ${esc(draft.title)}</a> (${draft.items.length} items). <a class="lnk" href="#/cr/${draft.id}">Submit for review →</a></div></div>` : '';
   if (f.key !== 'descriptors') {
     return page({ title: `${f.label} · ${y.year}`, actions, body: `${banner}${tableSearch()}
-      <div class="alert warning" style="margin-bottom:1rem">${I('bi-exclamation-triangle-fill')}<div>Schema-driven view generated from the ${y.ds} OpenAPI document for <span class="mono">${f.endpoints.join(', ')}</span>. Nested objects, arrays, and references edit through the schema form.${f.ext ? ` Requires <b>${f.ext}</b> in the target fingerprint.` : ''}</div></div>
+      <div class="alert warning" style="margin-bottom:1rem">${I('bi-exclamation-triangle-fill')}<div>Schema-driven view generated from the ${y.ds} OpenAPI document for <span class="mono">${f.endpoints.join(', ')}</span>. Nested objects, arrays, and references edit through the schema form.${f.ext ? ` Requires <b>${f.ext}</b> in the target fingerprint.` : ''}${f.optIn ? ` Managed: courses of <span class="mono">edorg</span> scope ${(scopes[y.year]||[]).filter(sc => sc.res === f.key).map(sc => esc(sc.value)).join(', ') || '— none; family off'}. Locally defined courses (LEA/school EdOrgs) import read-only. Course offerings and sections are out of scope.` : ''}</div></div>
       <table class="sbaa"><thead><tr><th>Endpoint</th><th>Natural key</th><th>Property</th><th>Property</th><th>Rev</th><th></th></tr></thead><tbody>${[1,2,3,4,5].map(i => `<tr class="clickable" onclick="toast('Schema form (nested objects/arrays/references) — edit → change request item with base revision')"><td class="mono">${f.endpoints[i % f.endpoints.length]}</td><td class="mono">#${1000+i}</td><td class="muted">…</td><td class="muted">…</td><td class="mono">${i}</td><td><span class="row-hover"><button class="btn table-row">${I('bi-pencil')}</button><button class="btn table-row" title="Tombstone">${I('bi-trash')}</button></span></td></tr>`).join('')}</tbody></table>${pagination(counts[y.year][families.indexOf(f)])}` });
   }
   return page({ title: `Descriptors · ${y.year}`, actions, body: `${banner}${tableSearch('Search', 'filterDesc(this.value)')}
@@ -528,17 +532,17 @@ screens.sources = () => page({ title: 'Upstream sources', actions: [{ icon: 'bi-
   ${sources.map((s,i) => `<tr><td>${I('bi-plug')} &nbsp;${esc(s.name)}</td><td class="mono">${s.origin}</td><td>${s.auth}</td><td class="mono">${s.secret}</td><td class="sm">${esc(s.mapping)}</td><td>${s.last}</td><td>${T(s.status)}</td><td style="white-space:nowrap"><button class="btn table-row" ${can('edit') ? '' : 'disabled'} onclick="pullSource(${i})">${I('bi-download')} Pull now</button><button class="btn table-row" ${can('configure') ? '' : 'disabled'} onclick="toast('Edit mapping: endpoint + JSON paths → Ed-Fi write shape, incl. nested objects/arrays')">${I('bi-pencil')}</button></td></tr>`).join('')}</tbody></table>` });
 window.pullSource = i => { const d = ensureDraft(); d.title = `Pull from ${sources[i].name}`; d.contributors = [...new Set([...d.contributors, 'svc-pipeline'])]; d.items.push({ op: 'update', ep: 'schools', key: 'School#255901104', base: 7, before: { shortNameOfInstitution: 'WLM' }, after: { shortNameOfInstitution: 'WLMS' } }); toast(`Pull complete (bounded response, 2 rows) → draft #${d.id}`); go(`#/cr/${d.id}`); };
 
-screens.settings = () => page({ title: 'Settings · managed scopes', actions: [{ icon: 'bi-plus-lg', text: 'Add scope', onclick: `toast('Scope kinds: descriptor namespace prefix · EdOrg subtree · all')`, disabled: !can('configure') }], body: `
+screens.settings = () => page({ title: 'Settings · managed scopes', actions: [{ icon: 'bi-plus-lg', text: 'Add scope', onclick: `toast('Scope kinds: descriptor namespace prefix · EdOrg subtree · exact EdOrg (edorg) · all')`, disabled: !can('configure') }], body: `
   ${!can('configure') ? noPriv('configure') : ''}
   ${section('Partner namespaces (set on the MDM vendor in SBAA)', `<div class="row wrap">${['uri://ea.startingblocks.org','uri://lakeside.org'].map(n => `<span class="tag">${n}</span>`).join('')}<button class="btn sm outline" ${can('configure')?'':'disabled'} onclick="toast('PUT /api/teams/:teamId/mdm/namespaces → vendor namespacePrefixes updated')">${I('bi-pencil')} Edit</button></div><div class="sm muted" style="margin-top:.5rem">Descriptors in <span class="mono">uri://ed-fi.org</span> and other vendors' namespaces are imported read-only. Ed-Fi namespace authorization is separate from resource CRUD.</div>`)}
-  ${section('Managed scopes by year set', `<table class="sbaa"><thead><tr><th>Year set</th><th>Kind</th><th>Scope</th><th></th></tr></thead><tbody>${Object.entries(scopes).sort((a,b)=>b[0]-a[0]).flatMap(([y, list]) => list.map(sc => `<tr><td>${y}</td><td>${T('', sc.kind)}</td><td class="mono">${sc.value}</td><td><button class="btn table-row row-hover" ${can('configure')?'':'disabled'}>${I('bi-trash')}</button></td></tr>`)).join('')}</tbody></table><div class="sm muted" style="margin-top:.5rem">MDM may create, update, or tombstone records only inside a scope. Set difference between a target and MDM never produces a delete.</div>`)}
+  ${section('Managed scopes by year set', `<table class="sbaa"><thead><tr><th>Year set</th><th>Kind</th><th>Scope</th><th></th></tr></thead><tbody>${Object.entries(scopes).sort((a,b)=>b[0]-a[0]).flatMap(([y, list]) => list.map(sc => `<tr><td>${y}</td><td>${T('', sc.kind)}</td><td class="mono">${sc.res ? sc.res + ' · ' : ''}${sc.value}</td><td><button class="btn table-row row-hover" ${can('configure')?'':'disabled'}>${I('bi-trash')}</button></td></tr>`)).join('')}</tbody></table><div class="sm muted" style="margin-top:.5rem">MDM may create, update, or tombstone records only inside a scope. Set difference between a target and MDM never produces a delete.</div>`)}
   ${section('Field ownership policy (v1 global defaults)', `<table class="sbaa"><thead><tr><th>Family</th><th>Owned paths</th><th>Create</th><th>Update</th></tr></thead><tbody>${families.map(f => `<tr><td>${f.label}</td><td>${f.owned === 'all' ? 'all' : '<span class="mono">nameOfInstitution, shortNameOfInstitution, parent refs, categories</span>'}</td><td>full stored payload</td><td>${f.owned === 'all' ? 'full replace' : 'owned paths merged into target representation'}</td></tr>`).join('')}</tbody></table>`)}` });
 
 screens.rollforward = () => page({ title: 'Roll forward', body: `
   ${!can('edit') ? noPriv('edit') : ''}
   <div class="row wrap" style="margin-bottom:1.5rem"><div class="field" style="margin:0"><label style="margin-top:0">From year set</label><select class="input"><option>2026 · DS 5.2 (rev 517)</option><option>2025 · DS 5.1 (rev 402)</option><option>2024 · DS 4.0 — EA 6.x sandbox (rev 118)</option></select></div><span style="margin-top:1.75rem">${I('bi-arrow-right')}</span><div class="field" style="margin:0"><label style="margin-top:0">New year set</label><input class="input" value="2027" style="width:6em"/></div><div class="field" style="margin:0"><label style="margin-top:0">Pin data standard</label><select class="input"><option>DS 5.2 (same — straight copy)</option><option>DS 6.0 (mapping required)</option></select></div></div>
   <div class="sm muted" style="margin-bottom:1rem">Creates the new year set first, then clones published records into one draft change request. Each family's registry rule decides what changes: school-year fields rewritten, year-less resources cloned unchanged, fiscal-year keys handled per overlay. Crossing a standard applies the hand-written mapping; unmapped required fields become item errors.</div>
-  <table class="sbaa"><thead><tr><th>Family</th><th>Records</th><th>Roll-forward rule</th><th>Mapping</th></tr></thead><tbody>${families.map((f,i) => `<tr><td>${I(f.icon)} &nbsp;${f.label}</td><td>${counts[2026][i]}</td><td class="sm">${f.key === 'chartOfAccounts' ? 'fiscal-year key rewritten per overlay' : f.key === 'descriptors' || f.key === 'programs' ? 'year-less — cloned unchanged' : 'school-year fields rewritten'}</td><td>${T('ok','same standard — none')}</td></tr>`).join('')}</tbody></table>
+  <table class="sbaa"><thead><tr><th>Family</th><th>Records</th><th>Roll-forward rule</th><th>Mapping</th></tr></thead><tbody>${families.map((f,i) => `<tr><td>${I(f.icon)} &nbsp;${f.label}</td><td>${counts[2026][i]}</td><td class="sm">${f.key === 'chartOfAccounts' ? 'fiscal-year key rewritten per overlay' : ['descriptors','programs','courses'].includes(f.key) ? 'year-less — cloned unchanged' : 'school-year fields rewritten'}</td><td>${T('ok','same standard — none')}</td></tr>`).join('')}</tbody></table>
   <div style="margin-top:1.5rem"><button class="btn primary" ${can('edit')?'':'disabled'} onclick="toast('Year set 2027 created (DS 5.2 pinned). Roll-forward job queued → draft change request.')">${I('bi-arrow-repeat')} Create 2027 from 2026</button></div>` });
 
 screens.account = () => page({ title: 'Account', body: `<div class="attrs"><div class="field"><label class="view">Name</label>${me().name}</div><div class="field"><label class="view">Team</label>${partner.team}</div><div class="field"><label class="view">SBAA role</label>${T('', me().role)}</div><div class="field"><label class="view">Effective MDM privileges</label>${me().priv.map(p => `<span class="mono">team.mdm:${p}</span>`).join(' ')}</div><div class="field"><label class="view">Identity resolved by</label><span class="mono">POST /api/mdm/identity</span> (SBAA, service-to-service)</div></div>
@@ -581,7 +585,7 @@ const navBtn = (href, icon, text, { depth = 0, on = isOn(href) } = {}) => `<a cl
 const navTree = (y, depth = 0) => {
   const open = !!S.open[y.year];
   return `<div class="navrow"><div class="caretwrap"><button class="caret ${open ? 'opened' : ''}" style="--d:${depth}em" onclick="S.open[${y.year}]=!S.open[${y.year}];render()" aria-label="open or close">${I('bi-caret-right-fill')}</button></div>${navBtn(`#/year/${y.year}`, 'bi-calendar3', `${y.year} · ${y.ds}`, { depth, on: (location.hash || '') === `#/year/${y.year}` })}</div>
-    ${open ? families.map(f => navBtn(`#/year/${y.year}/${f.key}`, f.icon, f.label, { depth: depth + 1 })).join('') : ''}`;
+    ${open ? famsFor(y.year).map(f => navBtn(`#/year/${y.year}/${f.key}`, f.icon, f.label, { depth: depth + 1 })).join('') : ''}`;
 };
 const shell = (content) => `<div class="layout">
       <header class="appbar"><div class="left"><a href="#/"><img alt="logo" src="logo-sb.svg"/></a><span class="team">${partner.team}</span></div>

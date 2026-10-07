@@ -74,7 +74,6 @@
   <h1>Master Data Management<br/>for StartingBlocks</h1>
   <p class="sub">A partner-level MDM that manages multi-year Ed-Fi master data and pushes it — through the ODS/API only — into tagged StartingBlocks environments.</p>
   <p class="muted sm">Sources: <span class="mono">ProjectScope.md</span> · <span class="mono">ProjectPlan.md</span> (five stages, one page) · <span class="mono">ImplementationPlan.md</span> (76 steps) · <span class="mono">mockup/mdm-prototype.html</span> (clickable UI)</p>
-  <p class="muted sm">Stage content is written short and direct: one instruction per sentence. Italic blocks are narrative.</p>
   <p class="muted sm">Navigate with → ← keys · F fullscreen · P print all</p>
 </section>
 
@@ -85,7 +84,7 @@
     <div class="card">
       <h3>MDM does</h3>
       <ul>
-        <li>Manage seven resource families for each partner and each school year: <b>EdOrgs, Descriptors, Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings</b>.</li>
+        <li>Manage eight resource families for each partner and each school year: <b>EdOrgs, Descriptors, Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings, Courses</b>. Courses are opt-in: a state catalog is managed; locally defined courses stay read-only; course offerings and sections stay out.</li>
         <li>Keep each year as its own set. Roll a year forward. Map records across Ed-Fi versions.</li>
         <li>Route each push to the correct ODSs with the SBAA tags <span class="mono">School_Year</span>, <span class="mono">EA_Tenant</span>, <span class="mono">Environment_Type</span>. Block incompatible targets.</li>
         <li>Write only through the ODS/API. The Ed-Fi rules block unsafe changes.</li>
@@ -157,7 +156,7 @@
     <tr><td><b>0</b> Foundations</td><td><span class="mono">mdm-api</span> runs in dev. It authenticates an SBAA user through the identity contract. It resolves the pilot team's owned, tagged ODSs with fingerprints. Credentials for one ODS survive a restart without rotation.</td></tr>
     <tr><td><b>1</b> Descriptors</td><td>The pilot imports Descriptors from an ODS, approves a change request, builds a manifest, and applies it to a dev ODS. Outcomes — including a conflict and an uncertain case — show in the UI and through <span class="mono">sbaa_api_client</span>.</td></tr>
     <tr><td><b>2</b> EdOrgs</td><td>MDM pushes the EdOrg hierarchy in dependency order. The manifest preview shows vendor-owned fields. MDM does not overwrite them. A failed child delete leaves its parent.</td></tr>
-    <tr><td><b>3</b> Remaining</td><td>All seven families are pushable. A 2024 year set from the 6.x/DS4 sandbox rolls into DS5 and pushes. File intake and upstream intake land as change requests.</td></tr>
+    <tr><td><b>3</b> Remaining</td><td>All eight families are pushable. A 2024 year set from the 6.x/DS4 sandbox rolls into DS5 and pushes. File intake and upstream intake land as change requests.</td></tr>
     <tr><td><b>4</b> Drift</td><td>The pilot receives a scheduled drift report. The UI flags the drifted records.</td></tr>
   </table>
 </section>
@@ -221,8 +220,8 @@
   <header><h1>Stage 3 — Remaining families, years, intake</h1><h2>breadth, then time · <span class="tag">L</span></h2></header>
   <div class="cols cols2">
     <dl class="ws">
-      <dt>SBAA API</dt><dd><ul><li>Extend the claimset to Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings.</li></ul></dd>
-      <dt>mdm-api</dt><dd><ul><li>Add the registry entries for every concrete endpoint in the five families. Certifications require TPDM in the target fingerprint.</li><li>Add the roll-forward job N → N+1 with per-resource rules: which year fields change, which year-less resources clone unchanged, how fiscal-year keys are treated.</li><li>Write the 6.x/DS4 → 7.x/DS5 field mapping.</li><li>Add file import: Ed-Fi JSON for all; CSV for Descriptors and flat EdOrg attributes.</li><li>Add the HTTP-API upstream connector: team-bound secrets, allow-listed HTTPS origins, no cross-origin credential forwarding, bounded responses. Pull on demand. Write a change request.</li></ul></dd>
+      <dt>SBAA API</dt><dd><ul><li>Extend the claimset to Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings, Courses.</li></ul></dd>
+      <dt>mdm-api</dt><dd><ul><li>Add the registry entries for every concrete endpoint in the six families. Certifications require TPDM in the target fingerprint.</li><li>Turn Courses on per year set with an exact-EdOrg scope. State courses inside the scope are managed. Local courses outside it import read-only.</li><li>Add the roll-forward job N → N+1 with per-resource rules: which year fields change, which year-less resources clone unchanged, how fiscal-year keys are treated.</li><li>Write the 6.x/DS4 → 7.x/DS5 field mapping.</li><li>Add file import: Ed-Fi JSON for all; CSV for Descriptors and flat EdOrg attributes.</li><li>Add the HTTP-API upstream connector: team-bound secrets, allow-listed HTTPS origins, no cross-origin credential forwarding, bounded responses. Pull on demand. Write a change request.</li></ul></dd>
       <dt>mdm-fe</dt><dd><ul><li>Build the schema-driven list and form with a schema-form library: nested objects, arrays, reference pickers.</li><li>Build roll-forward, file upload, and upstream-source screens.</li></ul></dd>
       <dt>sbaa_api_client</dt><dd><ul><li>Add roll-forward, file-import, upstream-pull wrappers.</li></ul></dd>
     </dl>

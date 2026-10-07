@@ -17,10 +17,10 @@ Existing SBAA resource hierarchy: `Team → SB Environment (SBE) → Ed-Fi Tenan
 
 ## 3. Decisions
 
-_All closed 2026-10-06. Each entry: question → decision → rationale._
+_All closed 2026-10-06; Q26 added 2026-10-07. Each entry: question → decision → rationale._
 
 **Q1. What counts as master data (v1)?**
-→ EdOrgs, Descriptors, Programs, Assessments (assessment metadata, not StudentAssessments), Chart of Accounts, Certifications, Descriptor Mappings. App must have expansion capacity for future Ed-Fi resources.
+→ EdOrgs, Descriptors, Programs, Assessments (assessment metadata, not StudentAssessments), Chart of Accounts, Certifications, Descriptor Mappings, Courses (opt-in, Q26). App must have expansion capacity for future Ed-Fi resources. *(Courses added 2026-10-07: Q26.)*
 → Rationale: these are partner-owned reference/configuration resources, not transactional student data. "Expansion capacity" implies resource handling should be metadata-driven rather than hand-coded per resource.
 
 **Q2. Where does MDM live?**
@@ -28,7 +28,7 @@ _All closed 2026-10-06. Each entry: question → decision → rationale._
 → Rationale: reuses SBAA conventions and shared libs without growing SBAA's own scope or DB; keeps the option to split into its own repo later.
 
 **Q3. How are resources modeled in the MDM DB?**
-→ Hybrid. Generic JSONB core store for all resource types (`mdm_record`: year set, concrete resource key, canonical natural key, `data` JSONB; identity per Q23), validated against the target ODS/API's OpenAPI spec. Typed projections / purpose-built forms only for EdOrgs and Descriptors (highest-traffic, tree- and set-shaped). All other v1 resources (Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings) use the generic schema-driven UI.
+→ Hybrid. Generic JSONB core store for all resource types (`mdm_record`: year set, concrete resource key, canonical natural key, `data` JSONB; identity per Q23), validated against the target ODS/API's OpenAPI spec. Typed projections / purpose-built forms only for EdOrgs and Descriptors (highest-traffic, tree- and set-shaped). All other v1 resources (Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings, Courses) use the generic schema-driven UI.
 → Rationale: generic core satisfies "expansion capacity" (new resource = config); typed projections buy good UX where users spend most time. Projections are read-models derived from the JSONB core, never a second source of truth.
 
 **Q4. How are multiple years and history represented?**
@@ -85,7 +85,7 @@ _All closed 2026-10-06. Each entry: question → decision → rationale._
 
 **Q14. Drift from other writers.**
 → Field-ownership model governs **updates only**: MDM-owned paths (natural key plus a per-resource list of designated JSON paths) are replaced in the target's current representation; non-owned paths (e.g. descriptive EdOrg attributes maintained by SIS vendors) are preserved and shown in the preview for visibility only. **Creates** send the full stored payload — a record imported with non-owned fields seeds a new target completely. Record-level authority (which rows MDM may create, update, or tombstone at all) is a separate concept: managed scope (Q20). Natural keys are immutable in v1; a key change is a reviewed tombstone + create. Detection happens at manifest time on the critical path; background drift scanning is an in-scope stretch feature (Q14a). Ownership lists are global defaults in v1 with a hook for per-partner override later. *(Revised after adversarial review, 2026-10-06: AR-3, AR-11.)*
-→ Where a partner wants hard enforcement, SBAA claimsets for other applications can drop Create/Update/Delete on MDM-owned resources. Caveat: Ed-Fi claimsets are resource-level, not field-level — this locks the whole resource, so it only fits resources where MDM owns every field (Descriptors, Descriptor Mappings, Chart of Accounts), not mixed-ownership EdOrgs.
+→ Where a partner wants hard enforcement, SBAA claimsets for other applications can drop Create/Update/Delete on MDM-owned resources. Caveat: Ed-Fi claimsets are resource-level, not field-level — this locks the whole resource, so it only fits resources where MDM owns every field (Descriptors, Descriptor Mappings, Chart of Accounts, and Courses where no local courses exist per Q26), not mixed-ownership EdOrgs.
 → Rationale: coexistence with vendor writers (Q7) while guaranteeing identity/structure integrity.
 
 **Q14a. Background drift scanning (stretch, added 2026-10-06).**
@@ -95,7 +95,7 @@ _All closed 2026-10-06. Each entry: question → decision → rationale._
 **Q15. Phasing.**
 → Stage 0 (foundations: SBAA endpoints and roles, packages, schema, auth, infra) precedes the phases; Stage N delivers Phase N.
 → Stage 1: Descriptors only, one pilot partner, single Ed-Fi version. Full vertical slice: per-ODS application provisioning → `mdm-api` JSONB store + OpenAPI validation → import-from-ODS → change request → approve → tag-based target resolution → manifest preview → apply with per-record outcomes → `sbaa_api_client` wrappers.
-→ Stage 2: EdOrgs (tree projection/UI, mixed field ownership, record-level dependency graph). Stage 3: Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings via generic schema-driven UI; roll-forward; cross-version mapping; file import; upstream pull (Q8a). Stage 4 (stretch): drift scanning (Q14a).
+→ Stage 2: EdOrgs (tree projection/UI, mixed field ownership, record-level dependency graph). Stage 3: Programs, Assessments, Chart of Accounts, Certifications, Descriptor Mappings, Courses (Q26) via generic schema-driven UI; roll-forward; cross-version mapping; file import; upstream pull (Q8a). Stage 4 (stretch): drift scanning (Q14a).
 → Rationale: Descriptors are flat, fully MDM-owned, version-stable, and dependency-light, so they exercise every architectural layer with the least UI, and surface workflow (Q13) feedback earliest.
 
 **Q16. Explicit exclusions.** → See §5. Embedding MDM UI inside SBAA's frontend was deliberately *not* excluded: `mdm-fe` ships as its own app in v1, but embedding/deep integration into the SBAA shell remains a future option.
@@ -121,7 +121,7 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 → Rationale: SBAA's integration-app model does not persist recoverable ODS credentials — it resets to reveal. Per-run retrieval needs an explicit custodian or every restart would force a rotation race.
 
 **Q20. Managed scope and deletes.**
-→ Record-level authority is explicit: `mdm_managed_scope` rows per (year set, resource, scope) where scope is a descriptor namespace prefix, an EdOrg subtree, or all. The MDM vendor's namespace prefixes are set to the partner-owned namespaces; Alliance- and other-vendor-namespaced descriptors are imported read-only for visibility. Deletes exist only as approved tombstone items in a change request; set difference between target and MDM never generates a delete.
+→ Record-level authority is explicit: `mdm_managed_scope` rows per (year set, resource, scope) where scope is a descriptor namespace prefix, an EdOrg subtree, an exact EdOrg set (`edorg`, Q26), or all. The MDM vendor's namespace prefixes are set to the partner-owned namespaces; Alliance- and other-vendor-namespaced descriptors are imported read-only for visibility. Deletes exist only as approved tombstone items in a change request; set difference between target and MDM never generates a delete.
 → Rationale: Ed-Fi namespace authorization is separate from resource CRUD, and "all fields owned" says nothing about whether MDM owns an unrelated row. A 409 protects referenced rows, not valid-but-unused ones.
 
 **Q21. Approval binds an immutable manifest; writes are conditional.**
@@ -144,9 +144,21 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 
 **Deferred to stage acceptance criteria (not Stage 0 gates):** record-level reference graph and reverse-direction delete blocking (Stage 2); schema-form library commitment and nested upstream mappings (Stage 3); upstream connector SSRF/secret-ownership controls (Stage 3, mandatory before the connector ships).
 
+### Decisions after close
+
+**Q26. Courses (added 2026-10-07).**
+→ `courses` joins v1 as the Courses resource family. `courseOfferings`, `sections`, and `courseTranscripts` stay out (§5).
+→ Courses are opt-in per year set. A year set without a `courses` managed scope does not import, show, or push Courses.
+→ Managed scope gains the kind `edorg`: exact `educationOrganizationId` values, no descendants. A state catalog uses its SEA id.
+→ Inside the scope, MDM owns every Course path. Outside the scope, Courses import read-only as external records. MDM never updates or tombstones them.
+→ The natural key is `courseCode` + `educationOrganizationId`. Courses are year-less; roll-forward clones them unchanged.
+→ Courses use the generic schema-driven UI and ship in Stage 3.
+→ Hard enforcement follows Q14. Lock `courses` for other applications only where the state publishes no local courses.
+→ Rationale: three deployment shapes exist. A state that alone maintains the course catalog gets a fully MDM-owned catalog. A state catalog plus SIS-published local courses (e.g. South Carolina) splits on the course's EdOrg, which is part of the key, so state and local courses never collide. A non-state deployment receives courses from the SIS and leaves the family off. One scope rule covers all three without a per-partner mode switch. Course offerings and sections are per-school, per-session scheduling data, not master data.
+
 ## 4. In Scope
 
-**Resources (v1 total):** EdOrgs, Descriptors, Programs, Assessments (metadata only), Chart of Accounts, Certifications, Descriptor Mappings. Resource set is config-driven so new Ed-Fi resources can be added without a schema change.
+**Resources (v1 total):** EdOrgs, Descriptors, Programs, Assessments (metadata only), Chart of Accounts, Certifications, Descriptor Mappings, Courses (opt-in per year set, Q26). Resource set is config-driven so new Ed-Fi resources can be added without a schema change.
 
 **Architecture**
 - `packages/mdm-api` (NestJS, cookie-session BFF) and `packages/mdm-fe` (React) in the SBAA monorepo; own PostgreSQL DB; own deploy pipeline; share `models`, `utils`, `common-ui`.
@@ -174,12 +186,13 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 0. Foundations: SBAA endpoints and roles, `mdm-api`/`mdm-fe` packages, schema, auth, local dev and deploy.
 1. Descriptors, pilot (EA internal tenant, ODS/API 7.3 / DS 5.2 / TPDM), single Ed-Fi version, full vertical slice.
 2. EdOrgs: tree UI, mixed field ownership, record-level dependency graph; first external partner.
-3. Remaining resources via generic UI; roll-forward; cross-version mapping (EA-hosted 6.x/DS4 sandbox); file import; upstream pull.
+3. Remaining resources (including opt-in Courses) via generic UI; roll-forward; cross-version mapping (EA-hosted 6.x/DS4 sandbox); file import; upstream pull.
 4. Stretch (any time after Stage 1): background drift scanning (Q14a).
 
 ## 5. Out of Scope
 
 - Student, staff, or any transactional data (StudentAssessments, enrollments, etc.).
+- Course offerings, sections, course transcripts, and other scheduling data (`courseOfferings`, `sections`, `courseTranscripts`) (Q26).
 - Creating, deleting, or configuring SBEs, tenants, or ODSs — topology remains SBAA's job; MDM only targets existing, tagged ODSs.
 - Direct ODS SQL writes via Lambda or any path other than the ODS/API.
 - Scheduled or automatic pushes — every push is user-initiated and approved (headless pushes only via `sbaa_api_client` by an authorized caller).
@@ -202,6 +215,7 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Pilot capability matrix is closed (7.3 / DS 5.2 / TPDM / unprofiled; EA-hosted 6.x sandbox for DS4). Risk remains that the first external partner (Stage 2) runs a different release or profiles — the fingerprint check must block, not warn.
 - Writer-quiescence is an operational agreement, not a technical guarantee; count-drift abort is the only safety net.
 - The upstream connector adds network and secret authority; its SSRF and secret-ownership controls are mandatory Stage 3 acceptance criteria.
+- Courses reference their owning EdOrg. A target without that EdOrg (e.g. the SEA) refuses every Course create (Q26).
 
 ## 7. Future Scope (not v1)
 

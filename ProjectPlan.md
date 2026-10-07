@@ -1,6 +1,6 @@
 # Project Plan: MDM for StartingBlocks
 
-*Format: short, direct sentences throughout — one instruction each — except the ✎ Summary (narrative). Revision 5, 2026-10-06: one page; includes the adversarial-review contracts Q18–Q25.*
+*Format: short, direct sentences throughout — one instruction each — except the ✎ Summary (narrative). Revision 6, 2026-10-07: one page; adds Courses (Q26).*
 
 ## ✎ Summary
 
@@ -11,7 +11,7 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 | 0 Foundations | `mdm-api` runs in dev. It authenticates an SBAA user. It resolves the pilot team's tagged ODSs through SBAA. | M |
 | 1 Descriptors slice | The pilot imports Descriptors from an ODS, approves a change request, and pushes to a dev ODS. Outcomes show in the UI and through `sbaa_api_client`. | L |
 | 2 EdOrgs | MDM pushes the EdOrg hierarchy in dependency order. The manifest preview shows vendor-owned fields. MDM does not overwrite them. | M |
-| 3 Remaining + years | All seven resources are pushable. One year rolls from 6.x/DS4 to 7.x/DS5. File intake and upstream intake land as change requests. | L |
+| 3 Remaining + years | All eight families are pushable. One year rolls from 6.x/DS4 to 7.x/DS5. File intake and upstream intake land as change requests. | L |
 | 4 Stretch: drift | The pilot receives a scheduled drift report. The UI flags the drifted records. | S |
 
 **Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; external partner joins at Stage 2 (Q15). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a).
@@ -42,8 +42,8 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 
 ## Stage 3 — Remaining resources, years, intake
 
-- **SBAA API:** Extend the claimset to Programs, Assessments, Chart of Accounts, Certifications, and Descriptor Mappings (Q1, Q6).
-- **mdm-api:** Add the five registry entries. Add the roll-forward job N → N+1. Write the 6.x/DS4 → 7.x/DS5 mapping. Add file import: Ed-Fi JSON for all; CSV for Descriptors and flat EdOrg attributes. Add the HTTP-API upstream connector with SSRF and secret-ownership controls and one mapping for each source; pull on demand; write a change request (Q1, Q3, Q4, Q8, Q8a, Q9).
+- **SBAA API:** Extend the claimset to the six Stage 3 families (Q1, Q6, Q26).
+- **mdm-api:** Add the six registry entries. Add the `edorg` scope kind for opt-in Courses. Add the roll-forward job N → N+1. Write the 6.x/DS4 → 7.x/DS5 mapping. Add file import: Ed-Fi JSON for all; CSV for Descriptors and flat EdOrg attributes. Add the HTTP-API upstream connector with SSRF and secret-ownership controls and one mapping for each source; pull on demand; write a change request (Q1, Q3, Q4, Q8, Q8a, Q9, Q20, Q26).
 - **mdm-fe:** Build the schema-driven list and form from OpenAPI with a schema-form library. Build the roll-forward, file upload, and upstream-source screens (Q3, Q4, Q8, Q8a).
 - **sbaa_api_client / Infra:** Add roll-forward, file-import, and upstream-pull wrappers. Store upstream credentials in Secrets Manager (Q8a, Q11).
 
