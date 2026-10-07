@@ -34,7 +34,7 @@ Where narrative prose is allowed: the ✎ Summary in `ProjectPlan.md`, the *Rati
 
 Audience-facing HTML (`ProjectPlan.guide.html`): **no** Q-numbers, revision markers, review-item numbers, or references to internal review files. Plain decisions and plain next steps. The engineering docs keep their traceability; the deck does not.
 
-`ProjectPlan.md` must stay one rendered page (≈1000–1100 words by `wc -w`, table pipes included).
+`ProjectPlan.md` should stay about one rendered page (≈1000–1250 words by `wc -w`, table pipes included).
 
 ## Glossary — use these exact terms
 
