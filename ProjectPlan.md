@@ -1,6 +1,6 @@
 # Project Plan: MDM for StartingBlocks
 
-*Format: ASD-STE100 throughout, except the ✎ Summary (normal prose). Revision 5, 2026-10-06: one page; includes the adversarial-review contracts Q18–Q25.*
+*Format: short, direct sentences throughout — one instruction each — except the ✎ Summary (narrative). Revision 5, 2026-10-06: one page; includes the adversarial-review contracts Q18–Q25.*
 
 ## ✎ Summary
 
