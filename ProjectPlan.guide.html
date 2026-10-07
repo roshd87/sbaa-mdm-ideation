@@ -128,32 +128,20 @@
   </div>
 </section>
 
-<!-- 4 Safety contracts -->
-<section class="slide">
-  <header><h1>Four contracts that gate Stage 0</h1><h2>what an adversarial review found, and what we committed to</h2></header>
-  <div class="cols cols2">
-    <div class="card contract"><h3>Identity</h3><p class="sm">SBAA exposes one service-only endpoint that turns a verified login (or a machine client) into an SBAA user and its per-team MDM privileges. No email lookups. The MDM service identity holds three narrow privileges and never acts as a user. Every job and audit row carries the acting user.</p></div>
-    <div class="card contract"><h3>Credential custody</h3><p class="sm">SBAA stores each MDM application's ODS/API key and secret, encrypted at rest, one row per ODS. Only the service identity can read or rotate them. People see status, never secrets. <span class="mono">mdm-api</span> keeps credentials in memory only.</p></div>
-    <div class="card contract"><h3>Managed scope</h3><p class="sm">MDM may only create, update, or tombstone records inside an explicit scope: a partner-owned descriptor namespace, an EdOrg subtree, or all. Other vendors' and the Alliance's descriptors are imported read-only. Deletes exist only as approved tombstones.</p></div>
-    <div class="card contract"><h3>Immutable manifest</h3><p class="sm">Approval of a change request is compare-and-swap on every item's base revision. Approval of a push produces a frozen manifest: published revision, target fingerprints, ordered operations with full payloads, observed ETags. Apply consumes one manifest, re-checks each target, writes with <span class="mono">If-Match</span>, and records a <span class="tag yellow">conflict</span> on 412.</p></div>
-  </div>
-  <p class="prose sm" style="margin-top:1em">Without these, the first version would have looked like it worked: a login that had to copy SBAA's user tables, a secret that vanished on the first restart, deletes computed from "whatever the ODS has that we don't", and a diff that could overwrite a SIS change made after the preview.</p>
-</section>
-
-<!-- 5 Stages -->
+<!-- 4 Stages -->
 <section class="slide">
   <header><h1>Five stages</h1><h2>click a stage for its detail · sizes are T-shirt, not dates</h2></header>
   <div class="timeline">
-    <div class="stage s0" onclick="goTo(5)"><div class="n">0</div><b>Foundations</b><span class="sm muted">SBAA endpoints and roles, packages, schema, auth, local dev, deploy</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
-    <div class="stage s1" onclick="goTo(6)"><div class="n">1</div><b>Descriptors slice</b><span class="sm muted">The full pipeline. One family. EA's internal pilot tenant.</span><div style="margin-top:.5em"><span class="tag">L</span></div></div>
-    <div class="stage s2" onclick="goTo(7)"><div class="n">2</div><b>EdOrgs</b><span class="sm muted">Tree UI, mixed ownership, record-level dependency graph. First external partner.</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
-    <div class="stage s3" onclick="goTo(8)"><div class="n">3</div><b>Remaining + years</b><span class="sm muted">Five families, roll-forward, version mapping, file + upstream intake</span><div style="margin-top:.5em"><span class="tag">L</span></div></div>
-    <div class="stage s4" onclick="goTo(9)"><div class="n">4</div><b>Stretch: drift</b><span class="sm muted">Opt-in scheduled drift scan</span><div style="margin-top:.5em"><span class="tag">S</span> <span class="tag purple">any time after 1</span></div></div>
+    <div class="stage s0" onclick="goTo(4)"><div class="n">0</div><b>Foundations</b><span class="sm muted">SBAA endpoints and roles, packages, schema, auth, local dev, deploy</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
+    <div class="stage s1" onclick="goTo(5)"><div class="n">1</div><b>Descriptors slice</b><span class="sm muted">The full pipeline. One family. EA's internal pilot tenant.</span><div style="margin-top:.5em"><span class="tag">L</span></div></div>
+    <div class="stage s2" onclick="goTo(6)"><div class="n">2</div><b>EdOrgs</b><span class="sm muted">Tree UI, mixed ownership, record-level dependency graph. First external partner.</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
+    <div class="stage s3" onclick="goTo(7)"><div class="n">3</div><b>Remaining + years</b><span class="sm muted">Six families, roll-forward, version mapping, file + upstream intake</span><div style="margin-top:.5em"><span class="tag">L</span></div></div>
+    <div class="stage s4" onclick="goTo(8)"><div class="n">4</div><b>Stretch: drift</b><span class="sm muted">Opt-in scheduled drift scan</span><div style="margin-top:.5em"><span class="tag">S</span> <span class="tag purple">any time after 1</span></div></div>
   </div>
   <h3>Exit criteria</h3>
   <table>
     <tr><th style="width:9em">Stage</th><th>The stage is complete when…</th></tr>
-    <tr><td><b>0</b> Foundations</td><td><span class="mono">mdm-api</span> runs in dev. It authenticates an SBAA user through the identity contract. It resolves the pilot team's owned, tagged ODSs with fingerprints. Credentials for one ODS survive a restart without rotation.</td></tr>
+    <tr><td><b>0</b> Foundations</td><td><span class="mono">mdm-api</span> runs in dev. It authenticates an SBAA user through the SBAA identity endpoint. It resolves the pilot team's owned, tagged ODSs with fingerprints. Credentials for one ODS survive a restart without rotation.</td></tr>
     <tr><td><b>1</b> Descriptors</td><td>The pilot imports Descriptors from an ODS, approves a change request, builds a manifest, and applies it to a dev ODS. Outcomes — including a conflict and an uncertain case — show in the UI and through <span class="mono">sbaa_api_client</span>.</td></tr>
     <tr><td><b>2</b> EdOrgs</td><td>MDM pushes the EdOrg hierarchy in dependency order. The manifest preview shows vendor-owned fields. MDM does not overwrite them. A failed child delete leaves its parent.</td></tr>
     <tr><td><b>3</b> Remaining</td><td>All eight families are pushable. A 2024 year set from the 6.x/DS4 sandbox rolls into DS5 and pushes. File intake and upstream intake land as change requests.</td></tr>
@@ -161,7 +149,7 @@
   </table>
 </section>
 
-<!-- 6 Stage 0 -->
+<!-- 5 Stage 0 -->
 <section class="slide">
   <header><h1><span style="color:var(--navy)">Stage 0</span> — Foundations</h1><h2>build what every later stage assumes · <span class="tag">M</span></h2></header>
   <dl class="ws">
@@ -170,10 +158,10 @@
     <dt>mdm-fe</dt><dd><ul><li>Create the React package on <span class="mono">common-ui</span>. Reproduce the SBAA chrome. Wire the login.</li></ul></dd>
     <dt>Infra</dt><dd><ul><li>Add the MDM Postgres, the Keycloak <span class="mono">mdm</span> client with the API callback, and the Nx serve targets to local dev.</li><li>Create the deployed database, pipeline, and Secrets Manager access.</li></ul></dd>
   </dl>
-  <p class="prose sm" style="margin-top:.9em">Stage 0 is bigger than a scaffold because the four contracts live here: SBAA must ship the identity endpoint, credential custody, and roles before any MDM code can authenticate or push. The resource registry also starts here so every later job is generic from day one.</p>
+  <p class="prose sm" style="margin-top:.9em">Stage 0 is bigger than a scaffold because SBAA must ship the identity endpoint, credential custody, and roles before any MDM code can authenticate or push. The resource registry also starts here so every later job is generic from day one.</p>
 </section>
 
-<!-- 7 Stage 1 -->
+<!-- 6 Stage 1 -->
 <section class="slide">
   <header><h1>Stage 1 — Descriptors slice</h1><h2>the full pipeline for the simplest family · EA internal pilot · <span class="tag">L</span></h2></header>
   <div class="cols cols2">
@@ -192,7 +180,7 @@
   </div>
 </section>
 
-<!-- 8 Stage 2 -->
+<!-- 7 Stage 2 -->
 <section class="slide">
   <header><h1>Stage 2 — EdOrgs</h1><h2>a hierarchy whose fields other vendors also write · first external partner · <span class="tag">M</span></h2></header>
   <div class="cols cols2">
@@ -215,7 +203,7 @@
   </div>
 </section>
 
-<!-- 9 Stage 3 -->
+<!-- 8 Stage 3 -->
 <section class="slide">
   <header><h1>Stage 3 — Remaining families, years, intake</h1><h2>breadth, then time · <span class="tag">L</span></h2></header>
   <div class="cols cols2">
@@ -242,7 +230,7 @@
   </div>
 </section>
 
-<!-- 10 Stage 4 -->
+<!-- 9 Stage 4 -->
 <section class="slide">
   <header><h1>Stage 4 — Stretch: drift scanning</h1><h2>the manifest build, read-only, on a timer · <span class="tag">S</span> · <span class="tag purple">any time after Stage 1</span></h2></header>
   <div class="cols cols2">
@@ -262,7 +250,7 @@
   </div>
 </section>
 
-<!-- 11 Release order -->
+<!-- 10 Release order -->
 <section class="slide">
   <header><h1>Release order</h1><h2>two deployables, one sequence</h2></header>
   <div class="flow">
@@ -277,7 +265,7 @@
   </div>
 </section>
 
-<!-- 12 Dependencies -->
+<!-- 11 Dependencies -->
 <section class="slide">
   <header><h1>What blocks what</h1><h2>sequence constraints</h2></header>
   <div class="dep">
@@ -292,7 +280,7 @@
   </div>
 </section>
 
-<!-- 13 Risks -->
+<!-- 12 Risks -->
 <section class="slide">
   <header><h1>Risks and mitigations</h1><h2>what can go wrong, and what we do about it</h2></header>
   <table>
@@ -307,7 +295,7 @@
   </table>
 </section>
 
-<!-- 14 Future -->
+<!-- 13 Future -->
 <section class="slide">
   <header><h1>Future scope</h1><h2>not v1 — recorded so v1 keeps the seams open</h2></header>
   <div class="cols cols2">
@@ -331,7 +319,7 @@
   </div>
 </section>
 
-<!-- 15 Where we are -->
+<!-- 14 Where we are -->
 <section class="slide">
   <header><h1>Where we are</h1><h2>every decision closed · next steps</h2></header>
   <div class="cols cols2">

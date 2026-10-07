@@ -11,7 +11,7 @@ Planning record for adding Master Data Management (MDM) to the StartingBlocks Ad
 | `ProjectScope.md` | 26 numbered decisions (Q1–Q26, plus Pilot and Inventory), each with rationale; §4 In Scope, §5 Out, §6 Risks, §7 Future | a decision changes or a new one is made |
 | `ProjectPlan.md` | One page, five stages, exit criteria, work by workstream, risks | stage content or sequencing changes |
 | `ImplementationPlan.md` | 76 ordered steps against the real SBAA monorepo, each sub-stage ends in a check; release order; seams for future standalone mode | mechanics, names, tables, endpoints change |
-| `ProjectPlan.guide.html` | 15-slide walkthrough for a non-engineering audience | any of the above changes |
+| `ProjectPlan.guide.html` | 14-slide walkthrough for a non-engineering audience | any of the above changes |
 | `mockup/mdm-prototype.html` | Clickable UI mockup, SBAA chrome, in-memory state, role switcher | UI decisions change |
 | `README.md` | Index | files are added or renamed |
 
