@@ -195,12 +195,14 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 → Roll-forward pre-fills the source year set's namespaces. The admin confirms or changes them.
 → Each namespace becomes a `namespace` managed scope of the new year set (Q20).
 → The MDM vendor's `namespacePrefixes` holds the union of the team's active year-set namespaces.
-→ Every namespace uses only unreserved URI characters (`A–Z a–z 0–9 - . _ ~ /`). Nothing in it needs percent-escaping.
-→ A namespace is at most 64 characters. The namespace step refuses longer ones.
+→ The year set holds namespace prefixes: the part before the descriptor domain (e.g. `uri://education.mn.gov`).
+→ A prefix uses only unreserved URI characters (`A–Z a–z 0–9 - . _ ~ /`). Nothing in it needs percent-escaping.
+→ A prefix is at most 64 characters. A prefix never names a descriptor domain. The namespace step refuses both.
+→ The descriptor domain and code value after the prefix follow Ed-Fi (e.g. `/GradeLevelDescriptor#Ninth grade`). They may need escaping; Q28 does not check them.
 → The team setting `partnerKind` takes `state` or `other`. *Applies to `state` only:*
 → The host follows a common state-domain pattern. It ends in `.gov` or `.us` and one label names the state by postal code or name.
 → Examples: `uri://minnesota.gov`, `uri://education.mn.gov`, `uri://education.mn.state.us`. The namespace step refuses other hosts.
-→ Rationale: a new school year is when an agency re-issues or retires namespaces. Fixing them first means every import and change item is checked against the right prefix from the start. A descriptor namespace names the issuing authority; for a state, that authority is a government domain, and states publish under both `.gov` and `.us`. Every descriptor value repeats its namespace, so short, escape-free namespaces keep payloads, keys, and URLs readable.
+→ Rationale: a new school year is when an agency re-issues or retires namespaces. Fixing them first means every import and change item is checked against the right prefix from the start. A descriptor namespace names the issuing authority; for a state, that authority is a government domain, and states publish under both `.gov` and `.us`. Every descriptor value repeats its prefix, so a short, escape-free prefix keeps payloads, keys, and URLs readable. Ed-Fi owns the descriptor domain and code value syntax.
 
 ## 4. In Scope
 

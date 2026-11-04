@@ -84,7 +84,7 @@ Step-by-step engineering plan for `ProjectScope.md` / `ProjectPlan.md` against t
 
 ### 1.2 Records, scopes, change requests
 37. `year-sets/` module: `POST /teams/:teamId/year-sets { schoolYear, dataStandard, descriptorNamespaces[] }`, `GET`, `PATCH` status. **[AR-17]** Records cannot exist without a year set.
-    - **[Q28]** `descriptorNamespaces` is required; guard `team.mdm:configure`. Each entry matches `^uri://[A-Za-z0-9._~/-]+$` and is at most 64 characters (422 otherwise).
+    - **[Q28]** `descriptorNamespaces` is required; guard `team.mdm:configure`. Each entry is a namespace prefix: it matches `^uri://[A-Za-z0-9._~/-]+$`, is at most 64 characters, and its last path segment does not end in `Descriptor` (422 otherwise). The descriptor domain and code value appended by Ed-Fi are not checked and may be percent-encoded.
     - **[Q28]** For `partnerKind = state`, the host ends in `.gov` or `.us` and one dot-separated label is a USPS state code or a state name (`packages/models/src/mdm/states.ts`).
     - **[Q28]** Create one `namespace` managed scope per entry, then call step 8 with the union of the team's active year-set namespaces.
 38. **[AR-3]** `managed-scopes/`: CRUD on `mdm_managed_scope`; `namespaces` setting proxies step 8 with the union of active year-set namespaces **[Q28]**. Import and change items outside scope are rejected with the offending key; imported rows outside scope are stored read-only (`external: true`) for diff visibility only.
