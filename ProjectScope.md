@@ -158,13 +158,17 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 
 **Q27. Statewide deployment (added 2026-11-04).**
 → Reference shape: an SEA with 500+ LEAs (e.g. Minnesota). Each LEA is one Ed-Fi tenant with one ODS per school year.
+→ Minnesota is the external partner that joins at Stage 2 (Q15). Stage 2 exits on a statewide apply. *(Added 2026-11-04.)*
 → One state SBAA Team owns every LEA target. State staff edit, approve, and publish. LEAs receive applied changes only.
 → `EA_Tenant` identifies the LEA. Q5 gains no new tags. Region and LEA type appear in rollups only.
 → EA owns the ODS/API deployment. Every LEA ODS runs the same API release, data standard, and extensions. *(Revised 2026-11-04.)*
 → The fingerprint check stays as a guard (Q24). In this shape it blocks no target.
 → MDM is the only writer of master data in every LEA ODS. No SIS or LEA application writes a v1 resource. *(Revised 2026-11-04.)*
 → EA applies the claimset hard enforcement (Q14) on every LEA ODS. Other applications lose write access to v1 resources.
-→ No LEA-local descriptors or courses exist. An LEA requests a new code through a state change request. Charters are LEAs.
+→ No LEA-local descriptors or courses exist. LEAs cannot add codes in any MDM-controlled domain. MDM needs no LEA request path. Charters are LEAs.
+→ The team setting `ownershipProfile` takes `default` or `sole-writer`. *(Added 2026-11-04.)*
+→ `sole-writer` makes every path of every v1 resource MDM-owned, including EdOrg `webSite`, addresses, and phones. Updates replace the full record.
+→ A `sole-writer` team must have the Q14 claimset lock on every target. `default` keeps the Q14 global lists.
 → One manifest covers every compatible target. A manifest has no target ceiling.
 → Apply writes at most N targets at once. The team setting `applyConcurrency` holds N.
 → A circuit breaker suspends the run when failed targets exceed X% of finished targets. The team setting `applyBreakerPct` holds X.
@@ -202,14 +206,14 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Bulk imports and manifest reads run in a writer-quiescence window; `Total-Count` drift between pages aborts as `incomplete`. An incomplete read blocks only that target (Q27).
 - Statewide apply: one manifest across every LEA target; `applyConcurrency` cap; circuit breaker `applyBreakerPct` suspends the run (Q27).
 - In-year adjustment after `collectionOpensOn`: no deletes, a second approval by someone other than the manifest's creator, run waits for a configured quiet window (Q27).
-- Field ownership governs updates; creates send full payloads; managed scopes bound which records MDM may touch at all. Global ownership defaults with per-partner override hook.
+- Field ownership governs updates; creates send full payloads; managed scopes bound which records MDM may touch at all. Global ownership defaults; a `sole-writer` team profile owns every path (Q27).
 - Per-operation states `ok | failed | skipped | conflict | uncertain`; dependents of failed records skipped; run `success`, `partial`, or `suspended`; re-run completes the same manifest. Outcomes persisted with the acting user.
 - Stretch: opt-in scheduled background drift scan per partner, reusing the manifest build; read-only, produces drift reports and UI flags (Q14a). Statewide teams leave the schedule off and scan on demand under the `applyConcurrency` cap (Q27).
 
 **Stages** (Q15)
 0. Foundations: SBAA endpoints and roles, `mdm-api`/`mdm-fe` packages, schema, auth, local dev and deploy.
 1. Descriptors, pilot (EA internal tenant, ODS/API 7.3 / DS 5.2 / TPDM), single Ed-Fi version, full vertical slice.
-2. EdOrgs: tree UI, mixed field ownership, record-level dependency graph; first external partner.
+2. EdOrgs: tree UI, mixed field ownership, record-level dependency graph; Minnesota joins as the first external partner, with a statewide apply proof (Q27).
 3. Remaining resources (including opt-in Courses) via generic UI; roll-forward; cross-version mapping (EA-hosted 6.x/DS4 sandbox); file import; upstream pull.
 4. Stretch (any time after Stage 1): background drift scanning (Q14a).
 
@@ -220,7 +224,7 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Creating, deleting, or configuring SBEs, tenants, or ODSs — topology remains SBAA's job; MDM only targets existing, tagged ODSs.
 - Direct ODS SQL writes via Lambda or any path other than the ODS/API.
 - Scheduled or automatic pushes — every push is user-initiated and approved (headless pushes only via `sbaa_api_client` by an authorized caller). An approved in-year run may wait for its quiet window (Q27).
-- Per-user or per-region authority inside a team; LEA-level editors (Q27).
+- Per-user or per-region authority inside a team; state and LEA users sharing one ODS — future (§7.3, Q27).
 - Field-level Ed-Fi permission enforcement — Ed-Fi claimsets are resource-level; MDM cannot lock individual fields on mixed-ownership resources.
 - Direct database connections to partner upstream systems — deferred from v1; HTTP-API sources only (Q8a decision).
 - Write-back to upstream sources, scheduled upstream pulls, generic ETL (Q8a).
@@ -228,7 +232,7 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Automatic rollback of partial pushes (Q12); deletes inferred from set difference (Q20).
 - Natural-key edits — a key change is a reviewed tombstone + create (Q14, Q23).
 - Change-query snapshots and retry-until-stable inventory reads (inventory decision).
-- Embedding `mdm-fe` in the SBAA shell, per-partner ownership overrides, bitemporal records, standalone mode — future (§7).
+- Embedding `mdm-fe` in the SBAA shell, per-partner ownership lists beyond the `sole-writer` profile, bitemporal records, standalone mode — future (§7).
 
 ## 6. Known Risks / Dependencies
 
@@ -237,11 +241,11 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Cross-version field mappings are hand-maintained per version pair.
 - ODS/API is non-transactional; partial pushes are expected and must be legible to users.
 - Identity resolution, roles, and credential custody live in SBAA; SBAA releases must precede MDM releases (release order in `ImplementationPlan.md`).
-- Pilot capability matrix is closed (7.3 / DS 5.2 / TPDM / unprofiled; EA-hosted 6.x sandbox for DS4). Risk remains that the first external partner (Stage 2) runs a different release or profiles — the fingerprint check must block, not warn.
+- Pilot capability matrix is closed (7.3 / DS 5.2 / TPDM / unprofiled; EA-hosted 6.x sandbox for DS4). The Stage 2 partner (Minnesota) runs on EA's uniform deployment (Q27); a later partner may run a different release or profiles — the fingerprint check must block, not warn.
 - Writer-quiescence is an operational agreement, not a technical guarantee; count-drift abort is the only safety net.
 - Statewide fan-out (Q27): N and X need tuning against real ODS load before the first statewide apply. A missed `collectionOpensOn` date lets a setup manifest with tombstones run against live data.
-- MDM as sole master-data writer (Q27): an LEA cannot add a local code without a state change request. An MDM outage blocks every master-data change statewide.
-- Field ownership (Q14) still applies to updates. Non-owned EdOrg paths (e.g. `webSite`, addresses) have no other writer in this shape; MDM sends them only on create until per-partner ownership overrides exist (§7).
+- MDM as sole master-data writer (Q27): LEAs cannot add local codes in MDM-controlled domains. An MDM outage blocks every master-data change statewide.
+- `sole-writer` ownership (Q27) overwrites any field another application writes. It is safe only where the claimset lock holds on every target.
 - The upstream connector adds network and secret authority; its SSRF and secret-ownership controls are mandatory Stage 3 acceptance criteria.
 - Courses reference their owning EdOrg. A target without that EdOrg (e.g. the SEA) refuses every Course create (Q26).
 
@@ -266,4 +270,17 @@ Seams v1 must keep to make 7.1 cheap:
 
 Explicitly *not* in 7.1: non-Ed-Fi targets (SIS write-back, data warehouses). Ed-Fi's API is the validation layer the whole design depends on (Q6); other targets would need a different safety model.
 
-**7.2 Other deferred items** (from decisions above): direct-DB upstream sources (Q8a); embedding `mdm-fe` inside the SBAA shell (Q16); per-partner field-ownership overrides (Q14); bitemporal/effective-dated records (Q4).
+**7.2 Other deferred items** (from decisions above): direct-DB upstream sources (Q8a); embedding `mdm-fe` inside the SBAA shell (Q16); per-partner field-ownership lists beyond the `sole-writer` profile (Q14, Q27); bitemporal/effective-dated records (Q4).
+
+**7.3 State and LEA authority on one ODS.** Added 2026-11-04 (Q27). Some deployments outside Minnesota let LEA users change their own LEA's ODS while a state team manages the same ODS. v1 supports an LEA as its own SBAA Team on its own ODSs, and a state team on its own. The mixed case waits.
+
+Design options when it is taken up:
+
+- **Per-user EdOrg scope.** One team; an LEA user's membership carries an EdOrg scope. Reopens Q20 and Q22; SBAA memberships gain a scope.
+- **Two teams, one ODS.** A state team and an LEA team target the same ODS with disjoint managed scopes (e.g. state vs LEA namespaces). Needs shared ODS ownership in SBAA and one MDM application per team per ODS. Reopens Q5 and Q6.
+
+Seams v1 keeps open:
+
+- Managed scope is per record, so disjoint state and LEA scopes need no record-store change.
+- The authorization guard reads `req.user.teams` only; a membership scope extends it in one place.
+- `ownershipProfile = sole-writer` is invalid wherever a second writer exists; such deployments use `default`.

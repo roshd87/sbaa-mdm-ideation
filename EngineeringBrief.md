@@ -76,7 +76,7 @@ New module `packages/api/src/mdm/`. All paths sit under `/api`.
 |`mdm_change_item`|`op` `create \| update \| tombstone`, `baseRevision` or `expectAbsent`, `after`|
 |`mdm_push_manifest`|immutable: `publishedRevision`, `targets` + fingerprints, `blockedTargets`, ordered `operations` with payloads and `observedEtag`, `ownershipPolicyVersion`, `includeDeletes`, `kind` `setup \| in_year`, `secondApproverUserId`|
 |`mdm_push_run`, `mdm_push_run_record`|run `running \| success \| partial \| suspended`, `suspendReason` `fingerprint \| breaker \| window`; operation `pending → in_flight → ok \| failed \| skipped \| conflict \| uncertain`|
-|`mdm_team_settings`|`applyConcurrency`, `applyBreakerPct`, `quietWindows` (Q27)|
+|`mdm_team_settings`|`applyConcurrency`, `applyBreakerPct`, `quietWindows`, `ownershipProfile` `default \| sole-writer` (Q27)|
 |`mdm_upstream_source`, `mdm_drift_settings`, `mdm_drift_report`|Stage 3–4|
 
 - Record identity is (year set, resource key, canonical natural key, key-schema version). The hash is an index only; on a hash match, compare `canonicalKey`.
@@ -153,7 +153,7 @@ Courses behaviour by deployment:
 **Statewide deployment (Q27).** Reference shape: an SEA with 500+ LEAs, one Ed-Fi tenant per LEA, one ODS per LEA per year.
 - One state team owns every target. State staff edit, approve, and publish. `EA_Tenant` identifies the LEA; no new tags.
 - EA owns the deployment: every LEA ODS has the same API release, data standard, and extensions. The fingerprint check stays as a guard.
-- MDM is the only master-data writer. EA applies the Q14 claimset lock on every LEA ODS. No LEA-local descriptors or courses exist; 412 conflicts come only from out-of-band edits.
+- MDM is the only master-data writer. EA applies the Q14 claimset lock on every LEA ODS. The team runs `ownershipProfile = sole-writer`, so MDM owns every EdOrg path, including `webSite` and addresses. No LEA-local descriptors or courses exist; 412 conflicts come only from out-of-band edits.
 - One manifest covers every compatible target, with no ceiling.
 
 |Workflow|When|Rules|
@@ -171,7 +171,7 @@ Courses behaviour by deployment:
 |---|---|---|
 |0 Foundations|SBAA roles + endpoints, packages, schema, auth, infra|`mdm-api` authenticates an SBAA user and resolves the pilot's tagged ODSs; credentials survive a restart without rotation.|
 |1 Descriptors|Full vertical slice, EA internal pilot (ODS/API 7.3, DS 5.2, TPDM)|Import → approve → manifest → apply to a dev ODS; conflict and uncertain cases demonstrated; visible in UI and `sbaa_api_client`.|
-|2 EdOrgs|Tree UI, mixed ownership, record-level reference graph, in-year gate|Ordered LEA + school creates; a SIS-owned field survives; a failed child delete blocks its parent; an in-year manifest refuses deletes and waits for its window.|
+|2 EdOrgs|Tree UI, mixed ownership, record-level reference graph, in-year gate|Ordered LEA + school creates; a SIS-owned field survives; a failed child delete blocks its parent; an in-year manifest refuses deletes and waits for its window; Minnesota applies one manifest to every LEA target.|
 |3 Remaining + years|Six families incl. Courses, roll-forward, DS4 → DS5, file + upstream intake|All endpoints pushable; a 6.x/DS4 sandbox year set rolls into DS5 and pushes; Courses scope behaviour verified.|
 |4 Drift (stretch)|Scheduled or on-demand read-only manifest build|The pilot receives a drift report; drifted records flagged.|
 
@@ -191,7 +191,8 @@ Courses behaviour by deployment:
 - **Version mappings are hand-written** for the version pairs StartingBlocks runs.
 - **The upstream connector carries SSRF and secret risk.** It needs team-bound secrets, allow-listed HTTPS origins, private-IP rejection, and no cross-origin redirects.
 - **Courses need their owning EdOrg in the target.** A missing SEA fails every Course create.
-- **Sole writer means no local codes.** An LEA needs a state change request for every new code. Non-owned EdOrg paths are sent on create only.
+- **Sole writer means no local codes.** LEAs cannot add codes in MDM-controlled domains.
+- **`sole-writer` ownership overwrites everything.** Every path is MDM-owned and updates are full replaces. It is safe only while the claimset lock holds.
 - **Statewide fan-out needs tuning.** Set `applyConcurrency` and `applyBreakerPct` against real ODS load. A wrong `collectionOpensOn` lets deletes reach live data.
 
 ## 11. Out of scope (v1)
@@ -199,7 +200,7 @@ Courses behaviour by deployment:
 - Student, staff, and transactional data.
 - Course offerings, sections, and transcripts.
 - ODS SQL writes; scheduled pushes; rollback.
-- Per-user or per-region authority inside a team.
+- Per-user or per-region authority inside a team; state and LEA users on one ODS (Scope §7.3).
 - Topology management.
 - Direct-DB upstream sources; write-back to upstream sources.
 - An MDM user store.

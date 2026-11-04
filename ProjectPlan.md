@@ -10,11 +10,11 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 |---|---|---|
 | 0 Foundations | `mdm-api` runs in dev. It authenticates an SBAA user. It resolves the pilot team's tagged ODSs through SBAA. | M |
 | 1 Descriptors slice | The pilot imports Descriptors from an ODS, approves a change request, and pushes to a dev ODS. Outcomes show in the UI and through `sbaa_api_client`. | L |
-| 2 EdOrgs | MDM pushes the EdOrg hierarchy in dependency order. The manifest preview shows vendor-owned fields. MDM does not overwrite them. | M |
+| 2 EdOrgs | MDM pushes the EdOrg hierarchy in dependency order. The manifest preview shows vendor-owned fields. MDM does not overwrite them. Minnesota applies one manifest to every LEA target; an in-year manifest waits for its window. | M |
 | 3 Remaining + years | All eight families are pushable. One year rolls from 6.x/DS4 to 7.x/DS5. File intake and upstream intake land as change requests. | L |
 | 4 Stretch: drift | The pilot receives a scheduled drift report. The UI flags the drifted records. | S |
 
-**Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; external partner joins at Stage 2 (Q15). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a). Statewide: EA owns a uniform deployment and MDM is the only master-data writer; one manifest fans out to every LEA tenant under a concurrency cap and circuit breaker; in-year adjustments need a quiet window and a second approval (Q27).
+**Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; Minnesota joins at Stage 2 (Q15, Q27). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a). Statewide: EA owns a uniform deployment and MDM is the only master-data writer; one manifest fans out to every LEA tenant under a concurrency cap and circuit breaker; in-year adjustments need a quiet window and a second approval (Q27).
 
 ## Stage 0 — Foundations
 
@@ -36,7 +36,7 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 ## Stage 2 — EdOrgs
 
 - **SBAA API:** Extend the claimset to the EdOrg resources (Q6).
-- **mdm-api:** Add the EdOrg registry entries with one natural key for each subtype (`schoolId`, `localEducationAgencyId`, …). Build the tree read-model. Add the mixed ownership lists; show non-owned fields only for visibility. Rely on `/dependencies` to place LEA before School. Add record-level reference edges; skip dependents of failures; block a parent delete when a child delete fails (Q3, Q7a, Q12, Q14).
+- **mdm-api:** Add the EdOrg registry entries with one natural key for each subtype (`schoolId`, `localEducationAgencyId`, …). Build the tree read-model. Add the mixed ownership lists; show non-owned fields only for visibility. Add the `sole-writer` ownership profile: every path owned, full replace (Q27). Rely on `/dependencies` to place LEA before School. Add record-level reference edges; skip dependents of failures; block a parent delete when a child delete fails (Q3, Q7a, Q12, Q14, Q27).
 - **mdm-fe:** Build the tree editor. Mark owned and non-owned fields in the manifest preview (Q3, Q14).
 - **mdm-api:** Add `collectionOpensOn` and quiet windows. Gate in-year manifests: no deletes, a second approval by someone other than the creator (Q13a, Q27).
 - **Docs:** Write the claimset hard-enforcement guidance for fully-owned resources (Q14).

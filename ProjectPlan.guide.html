@@ -134,7 +134,7 @@
   <div class="timeline">
     <div class="stage s0" onclick="goTo(4)"><div class="n">0</div><b>Foundations</b><span class="sm muted">SBAA endpoints and roles, packages, schema, auth, local dev, deploy</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
     <div class="stage s1" onclick="goTo(5)"><div class="n">1</div><b>Descriptors slice</b><span class="sm muted">The full pipeline. One family. EA's internal pilot tenant.</span><div style="margin-top:.5em"><span class="tag">L</span></div></div>
-    <div class="stage s2" onclick="goTo(6)"><div class="n">2</div><b>EdOrgs</b><span class="sm muted">Tree UI, mixed ownership, record-level dependency graph. First external partner.</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
+    <div class="stage s2" onclick="goTo(6)"><div class="n">2</div><b>EdOrgs</b><span class="sm muted">Tree UI, mixed ownership, record-level dependency graph. Minnesota joins statewide.</span><div style="margin-top:.5em"><span class="tag">M</span></div></div>
     <div class="stage s3" onclick="goTo(7)"><div class="n">3</div><b>Remaining + years</b><span class="sm muted">Six families, roll-forward, version mapping, file + upstream intake</span><div style="margin-top:.5em"><span class="tag">L</span></div></div>
     <div class="stage s4" onclick="goTo(8)"><div class="n">4</div><b>Stretch: drift</b><span class="sm muted">Opt-in scheduled drift scan</span><div style="margin-top:.5em"><span class="tag">S</span> <span class="tag purple">any time after 1</span></div></div>
   </div>
@@ -182,7 +182,7 @@
 
 <!-- 7 Stage 2 -->
 <section class="slide">
-  <header><h1>Stage 2 — EdOrgs</h1><h2>a hierarchy whose fields other vendors also write · first external partner · <span class="tag">M</span></h2></header>
+  <header><h1>Stage 2 — EdOrgs</h1><h2>a hierarchy whose fields other vendors also write · Minnesota joins · <span class="tag">M</span></h2></header>
   <div class="cols cols2">
     <dl class="ws">
       <dt>SBAA API</dt><dd><ul><li>Extend the claimset to the EdOrg resources. Re-ensure each application.</li></ul></dd>
@@ -261,7 +261,8 @@
         <li>Each LEA is its own Ed-Fi tenant. Charters are LEAs.</li>
         <li>One state team owns every LEA target. State staff edit, approve, and publish.</li>
         <li>EA runs every LEA's ODS on the same release and data standard.</li>
-        <li>MDM is the only writer of master data. An LEA asks the state for a new code.</li>
+        <li>MDM is the only writer of master data. Districts cannot add their own codes.</li>
+        <li>MDM owns every field, including school addresses and websites.</li>
         <li>One manifest covers every compatible LEA. Region and LEA type appear in rollups only.</li>
       </ul>
       <h3>Apply at scale</h3>
@@ -325,8 +326,8 @@
     <tr><td><b>The change-request UI is the largest and riskiest UX.</b></td><td>Validate it with the internal pilot in Stage 1. Scale it after that.</td></tr>
     <tr><td><b>Partial pushes occur.</b> The ODS/API is non-transactional.</td><td>Persist per-operation outcomes. Record skip reasons. Re-run the same manifest only. Never pretend to roll back.</td></tr>
     <tr><td><b>Cross-version mappings are hand-maintained.</b></td><td>Write them only for the version pairs StartingBlocks runs. Apply them only at roll-forward.</td></tr>
-    <tr><td><b>Writer quiescence is an agreement, not a guarantee.</b></td><td>Count-drift abort is the safety net. Revisit snapshot reads with the first external partner.</td></tr>
-    <tr><td><b>The first external partner may run a different release or profiles.</b></td><td>The fingerprint check blocks, never warns.</td></tr>
+    <tr><td><b>Writer quiescence is an agreement, not a guarantee.</b></td><td>Count-drift abort is the safety net. Revisit snapshot reads with the next partner that has other writers.</td></tr>
+    <tr><td><b>A later partner may run a different release or profiles.</b></td><td>Minnesota runs on EA's uniform deployment. The fingerprint check still blocks, never warns.</td></tr>
     <tr><td><b>A statewide apply reaches 500+ ODSs.</b></td><td>Cap concurrent LEAs. Pause the run on a high failure rate. Tune both against real load first.</td></tr>
     <tr><td><b>Claimsets cannot lock single fields.</b></td><td>Document the limit. Use the ownership merge for EdOrgs.</td></tr>
   </table>
@@ -351,7 +352,7 @@
     </div>
     <div>
       <div class="card sm" style="margin-bottom:.8em"><h3>Seams v1 keeps</h3><ul><li>A <span class="mono">TargetProvider</span> interface with one implementation today.</li><li>Target identity is URLs + fingerprint; SBAA ids live under <span class="mono">provider</span>.</li><li>The authorization guard reads a privilege map and nothing else knows SBAA produced it.</li><li>Manifests and runs take targets, never ODS ids.</li></ul></div>
-      <div class="card sm"><h3>Also deferred</h3><ul><li>Direct-database upstream sources.</li><li>Embedding <span class="mono">mdm-fe</span> inside the SBAA shell.</li><li>Per-partner field-ownership overrides.</li><li>Effective-dated (bitemporal) records.</li><li>Non-Ed-Fi targets — the Ed-Fi API is the safety model this design depends on.</li></ul></div>
+      <div class="card sm"><h3>Also deferred</h3><ul><li>Direct-database upstream sources.</li><li>Embedding <span class="mono">mdm-fe</span> inside the SBAA shell.</li><li>Custom per-partner field-ownership lists.</li><li>State and LEA users sharing one LEA's ODS.</li><li>Effective-dated (bitemporal) records.</li><li>Non-Ed-Fi targets — the Ed-Fi API is the safety model this design depends on.</li></ul></div>
     </div>
   </div>
 </section>
