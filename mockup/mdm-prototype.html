@@ -510,7 +510,7 @@ window.setScenario = sc => {
 /* ======================= utils ======================= */
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 const go = h => { location.hash = h; };
-const toast = m => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); };
+const toast = m => { (S.toasts = S.toasts || []).push(m); setTimeout(() => window.mdmBridge?.onChange?.(), 0); const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); };
 const I = (n, extra='') => `<i class="bi ${n} ${extra}"></i>`;
 const tagColor = s => ({ submitted:'yellow', 'in review':'yellow', draft:'blue', approved:'green', rejected:'red', stale:'red', partial:'yellow', suspended:'yellow', success:'green', done:'green', superseded:'', running:'blue', failed:'red', ok:'green', skipped:'yellow', conflict:'red', uncertain:'purple', current:'green', active:'blue', archived:'', prod:'red', dev:'blue', warn:'yellow', owned:'yellow', stretch:'purple', blocked:'red', compatible:'green', external:'', awaiting_approval:'yellow', in_year:'purple', setup:'blue', pending:'', scheduled:'blue', breaker:'red', window:'yellow', fingerprint:'yellow' }[s] || '');
 const T = (s, label) => `<span class="tag ${tagColor(s)}">${esc(label ?? s)}</span>`;
@@ -860,6 +860,7 @@ screens.run = (id) => {
     ${section(big ? `Per-operation outcomes · sample target ${r.sample}` : 'Per-operation outcomes', r.records.length ? `<table class="sbaa"><thead><tr><th>Record</th><th>Op</th><th>State</th><th>Detail</th></tr></thead><tbody>${r.records.map(x => `<tr><td class="mono">${esc(x.key)}</td><td>${x.op}</td><td>${T(x.state)}</td><td class="${['failed','conflict'].includes(x.state)?'mono':'sm muted'}">${esc(x.err||'')}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">All operations succeeded.</span>')}`}` });
 };
 window.rerun = id => {
+  runs.find(x => x.id === id).reruns = (runs.find(x => x.id === id).reruns || 0) + 1;
   const r = runs.find(x => x.id === id);
   r.records.forEach(x => { if (x.state === 'uncertain') { x.state = 'ok'; x.err = 'reconciled: GET by natural key shows intended state — no retry needed'; } });
   if (!r.perTarget) { r.counts.uncertain = 0; r.counts.ok = r.records.filter(x => x.state === 'ok').length; toast('Re-run: uncertain reconciled by natural key; failed/skipped retried against the same manifest (409 persists until data changes)'); render(); return; }
@@ -1010,9 +1011,11 @@ const shell = (content) => `<div class="layout">
         <div class="content"><div class="inner">${crumbs()}<div class="body">${content}</div><div class="copy">©2023-${new Date().getFullYear()} Education Analytics, Inc. All Rights Reserved</div></div></div>
       </main></div>`;
 
-function render() { document.getElementById('app').innerHTML = shell(route()); }
+function render() { document.getElementById('app').innerHTML = shell(route()); window.mdmBridge?.onChange?.(); }
 // Bridge for GUIDE-mdm-admin.html (same-origin iframe): read scenario/user, switch user.
-window.mdmBridge = { scenario: () => S.scenario, user: () => me().id, actAs: id => { S.userIx = users.findIndex(u => u.id === id); render(); } };
+// onChange is set by the guide; it runs after every render and toast so walkthrough steps can complete themselves.
+window.mdmBridge = { scenario: () => S.scenario, user: () => me().id, actAs: id => { S.userIx = users.findIndex(u => u.id === id); render(); },
+  state: () => ({ S, changeRequests, manifests, runs, yearSets, hash: location.hash || '#/' }), onChange: null };
 window.addEventListener('hashchange', render);
 render();
 </script>

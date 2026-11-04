@@ -147,7 +147,7 @@
 
       <section id="walkthroughs" aria-labelledby="h-walk">
         <h2 id="h-walk" style="margin-top:0">Walkthroughs</h2>
-        <p class="note">Open a path to show that screen, do the action there, then select the step number to mark it done. Progress is saved in this browser.</p>
+        <p class="note">Open a path to show that screen, do the action there, and the step marks itself done. Select a step number to mark it by hand. Progress follows the wireframe: reloading or resetting it clears both.</p>
         <div id="walk-list"></div>
       </section>
 
@@ -286,8 +286,8 @@ const SCREENS = [
 const WALKS = [
   { id: 'p-apply', sc: 'pilot', title: 'Apply a manifest and read the conflict', sub: 'Do this first: approving #12 later supersedes manifest 31.', steps: [
     { t: 'Open manifest 31 and select <b>Apply</b>.', go: '#/manifests/31' },
-    { t: 'Find the <code>conflict</code> row (412) and the no-rollback alert.' },
-    { t: 'Select <b>Re-run</b>. Uncertain operations reconcile; the conflict remains.' } ] },
+    { t: 'Find the <code>conflict</code> row (412). Re-run stays disabled: a conflict needs a new manifest.' },
+    { t: 'Open run 7 and select <b>Re-run 4 remaining</b>. The uncertain operation reconciles; the 409 failure stays until the data changes.', go: '#/runs/7' } ] },
   { id: 'p-approve', sc: 'pilot', title: 'Approve a change request, then hit a stale one', steps: [
     { t: 'Open change request 12 and select <b>Approve</b>. The published revision advances.', go: '#/cr/12' },
     { t: 'Open change request 11 and select <b>Approve</b>. It is rejected as stale.', go: '#/cr/11' } ] },
@@ -328,10 +328,50 @@ const WALKS = [
     { t: 'Enter <code>uri://education.mn.gov</code> and select <b>Create 2028 from 2027</b>.' } ] },
 ];
 
+
+// Each step completes itself when the mockup's state shows the action happened.
+// st = mdmBridge.state(): { S, changeRequests, manifests, runs, yearSets, hash }
+const cr = (st, id) => st.changeRequests.find(c => c.id === id) || {};
+const runFor = (st, mid) => st.runs.find(r => r.manifestId === mid);
+const mine = st => st.changeRequests.filter(c => c.author === 'a.chen' && c.items.some(i => i.op === 'update' && /Descriptors$/.test(i.ep)));
+const inYearNew = st => st.manifests.filter(m => m.id > 213 && m.kind === 'in_year');
+const toasted = (st, start) => (st.S.toasts || []).some(t => t.startsWith(start));
+const CHECKS = {
+  'p-apply.0': st => !!runFor(st, 31),
+  'p-apply.1': st => { const r = runFor(st, 31); return !!r && st.hash === `#/runs/${r.id}`; },
+  'p-apply.2': st => !!st.runs.find(r => r.id === 7)?.reruns,
+  'p-approve.0': st => cr(st, 12).status === 'approved',
+  'p-approve.1': st => !!cr(st, 11).stale,
+  'p-handoff.0': st => mine(st).length > 0,
+  'p-handoff.1': st => mine(st).some(c => c.status !== 'draft'),
+  'p-handoff.2': st => mine(st).some(c => c.status === 'approved' && c.approver === 'r.dhanawade'),
+  'p-build.0': st => (st.hash === '#/push' && st.S.push.step >= 2) || st.manifests.some(m => m.id > 31),
+  'p-build.1': st => st.manifests.some(m => m.id > 31),
+  'p-build.2': st => st.runs.some(r => r.manifestId > 31),
+  'p-roll.0': st => st.yearSets.some(y => y.year === 2027),
+  'm-setup.0': st => !!runFor(st, 213),
+  'm-setup.1': st => { const r = runFor(st, 213); return !!r && st.hash === `#/runs/${r.id}`; },
+  'm-inyear.0': st => (st.hash === '#/push' && st.S.push.year === 2026) || inYearNew(st).length > 0,
+  'm-inyear.1': st => inYearNew(st).length > 0,
+  'm-inyear.2': st => inYearNew(st).some(m => m.secondApprover),
+  'm-inyear.3': st => st.runs.some(r => inYearNew(st).some(m => m.id === r.manifestId)),
+  'm-inyear.4': st => st.runs.some(r => r.perTarget && inYearNew(st).some(m => m.id === r.manifestId)),
+  'm-breaker.0': st => st.hash === '#/runs/88',
+  'm-breaker.1': st => runFor(st, 212)?.status === 'success',
+  'm-catalog.0': st => st.changeRequests.some(c => c.items.some(i => i.ep === 'courses' && i.op === 'update' && i.before && 'Title' in i.before)),
+  'm-provision.0': st => st.hash === '#/push' && st.S.push.step === 1 && st.S.push.year === 2027,
+  'm-provision.1': st => toasted(st, 'Batch ensure'),
+  'm-drift.0': st => toasted(st, 'On-demand read-only'),
+  'm-roll.0': st => st.hash === '#/rollforward',
+  'm-roll.1': st => (st.S.rfNs || '').includes('mn-education.example.com'),
+  'm-roll.2': st => (st.S.rfNs || '').includes('GradeLevelDescriptor'),
+  'm-roll.3': st => st.yearSets.some(y => y.year === 2028),
+};
+
 /* ---------- state ---------- */
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 let sc = store.get('guide.sc', 'pilot');
-const done = store.get('guide.done', {});
+const done = {}; // true = done, false = unmarked by hand; cleared with the mockup
 const frame = document.getElementById('mock');
 const live = () => { try { const w = frame.contentWindow; return w && w.mdmBridge ? w : null; } catch { return null; } };
 const narrow = () => matchMedia('(max-width: 1000px)').matches;
@@ -351,10 +391,18 @@ function setScenario(next, drive = true) {
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sc === sc)));
   document.getElementById('sc-note').textContent = SC_NOTE[sc];
   const w = live(); if (drive && w && w.mdmBridge.scenario() !== sc) w.setScenario(sc);
-  renderWalks(); renderIds();
+  rerenderWalks(); renderIds(); autoCheck();
 }
 function setup() { const w = live(); if (!w) { alert('Serve the repo folder to let the guide drive the mockup. Then set Scenario and Acting as in its app bar.'); return; } if (w.mdmBridge.scenario() !== sc) w.setScenario(sc); actAs('a.chen'); show('#/'); }
-function resetMock() { frame.src = 'mdm-prototype.html'; }
+function resetMock() { Object.keys(done).forEach(k => delete done[k]); rerenderWalks(); frame.src = 'mdm-prototype.html'; }
+function rerenderWalks() { const open = [...document.querySelectorAll('details.walk[open]')].map(d => d.dataset.id); renderWalks(); open.forEach(id => document.querySelector(`details.walk[data-id="${id}"]`)?.setAttribute('open', '')); }
+function autoCheck() {
+  const w = live(); if (!w) return; const st = w.mdmBridge.state(); let changed = false;
+  if (st.S.scenario === sc) WALKS.filter(x => x.sc === sc).forEach(x => x.steps.forEach((_, i) => { const k = `${x.id}.${i}`;
+    if (done[k] === undefined && CHECKS[k]) { let hit = false; try { hit = !!CHECKS[k](st); } catch {} if (hit) { done[k] = true; changed = true; } } }));
+  if (changed) rerenderWalks();
+  syncNow();
+}
 
 /* ---------- rendering ---------- */
 const pathBtn = p => `<button type="button" class="path" data-go="${p}">${p}</button>`;
@@ -400,9 +448,9 @@ function syncNow() {
 }
 frame.addEventListener('load', () => {
   const w = live();
-  if (w) { w.addEventListener('hashchange', syncNow); w.document.addEventListener('change', () => setTimeout(syncNow, 0));
+  if (w) { w.mdmBridge.onChange = autoCheck; ['input', 'change'].forEach(ev => w.document.addEventListener(ev, () => setTimeout(autoCheck, 0)));
     if (w.mdmBridge.scenario() !== sc) w.setScenario(sc); }
-  syncNow();
+  Object.keys(done).forEach(k => delete done[k]); rerenderWalks(); autoCheck();
 });
 
 /* ---------- events ---------- */
@@ -410,7 +458,7 @@ document.addEventListener('click', e => {
   const go = e.target.closest('[data-go]'); if (go) { e.preventDefault(); show(go.dataset.go); return; }
   const as = e.target.closest('[data-as]'); if (as) { actAs(as.dataset.as); return; }
   const tk = e.target.closest('[data-tick]');
-  if (tk) { const k = tk.dataset.tick; done[k] = !done[k]; store.set('guide.done', done); const open = [...document.querySelectorAll('details.walk[open]')].map(d => d.dataset.id); renderWalks(); open.forEach(id => document.querySelector(`details.walk[data-id="${id}"]`)?.setAttribute('open', '')); return; }
+  if (tk) { const k = tk.dataset.tick; done[k] = !done[k]; rerenderWalks(); return; }
   const seg = e.target.closest('.seg button'); if (seg) { setScenario(seg.dataset.sc); return; }
 });
 document.getElementById('setup').addEventListener('click', setup);
