@@ -160,7 +160,11 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 → Reference shape: an SEA with 500+ LEAs (e.g. Minnesota). Each LEA is one Ed-Fi tenant with one ODS per school year.
 → One state SBAA Team owns every LEA target. State staff edit, approve, and publish. LEAs receive applied changes only.
 → `EA_Tenant` identifies the LEA. Q5 gains no new tags. Region and LEA type appear in rollups only.
-→ LEA-local descriptors and courses fall outside managed scope and import read-only (Q20, Q26). Charters are LEAs.
+→ EA owns the ODS/API deployment. Every LEA ODS runs the same API release, data standard, and extensions. *(Revised 2026-11-04.)*
+→ The fingerprint check stays as a guard (Q24). In this shape it blocks no target.
+→ MDM is the only writer of master data in every LEA ODS. No SIS or LEA application writes a v1 resource. *(Revised 2026-11-04.)*
+→ EA applies the claimset hard enforcement (Q14) on every LEA ODS. Other applications lose write access to v1 resources.
+→ No LEA-local descriptors or courses exist. An LEA requests a new code through a state change request. Charters are LEAs.
 → One manifest covers every compatible target. A manifest has no target ceiling.
 → Apply writes at most N targets at once. The team setting `applyConcurrency` holds N.
 → A circuit breaker suspends the run when failed targets exceed X% of finished targets. The team setting `applyBreakerPct` holds X.
@@ -172,7 +176,7 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 → An in-year manifest needs a second approval. The approver is a human with `approve` or `publish`, not the manifest's creator.
 → An in-year run waits for the next quiet window configured by `mdm-admin`. Unfinished targets suspend when the window closes.
 → Drift scans are off by default. A publisher starts an on-demand scan. Scans use the `applyConcurrency` cap.
-→ Rationale: per-LEA tenants make target count, not record count, the scale axis. One manifest keeps triage and re-run on one object. The breaker stops a systemic error before it reaches 500 ODSs. Before collection, no student data references master data, so setup needs no window. After collection opens, live records reference descriptors and courses; deletes risk orphaning them, and a SIS may write at any hour. A scheduled window, a second approver, and no tombstones contain that risk without a new role. Nightly drift across 500 ODSs costs read load that an on-demand scan avoids.
+→ Rationale: per-LEA tenants make target count, not record count, the scale axis. One manifest keeps triage and re-run on one object. The breaker stops a systemic error before it reaches 500 ODSs. Before collection, no student data references master data, so setup needs no window. After collection opens, live student records reference descriptors and courses; deletes risk orphaning them, and SIS loads peak during the school day. A scheduled window, a second approver, and no tombstones contain that risk without a new role. With MDM as the only master-data writer, drift and 412 conflicts come only from out-of-band edits, so a nightly scan across 500 ODSs costs read load for little signal. One owner of the deployment makes uniform fingerprints an operational guarantee; the check remains to catch a missed upgrade.
 
 ## 4. In Scope
 
@@ -236,6 +240,8 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Pilot capability matrix is closed (7.3 / DS 5.2 / TPDM / unprofiled; EA-hosted 6.x sandbox for DS4). Risk remains that the first external partner (Stage 2) runs a different release or profiles — the fingerprint check must block, not warn.
 - Writer-quiescence is an operational agreement, not a technical guarantee; count-drift abort is the only safety net.
 - Statewide fan-out (Q27): N and X need tuning against real ODS load before the first statewide apply. A missed `collectionOpensOn` date lets a setup manifest with tombstones run against live data.
+- MDM as sole master-data writer (Q27): an LEA cannot add a local code without a state change request. An MDM outage blocks every master-data change statewide.
+- Field ownership (Q14) still applies to updates. Non-owned EdOrg paths (e.g. `webSite`, addresses) have no other writer in this shape; MDM sends them only on create until per-partner ownership overrides exist (§7).
 - The upstream connector adds network and secret authority; its SSRF and secret-ownership controls are mandatory Stage 3 acceptance criteria.
 - Courses reference their owning EdOrg. A target without that EdOrg (e.g. the SEA) refuses every Course create (Q26).
 

@@ -152,6 +152,8 @@ Courses behaviour by deployment:
 
 **Statewide deployment (Q27).** Reference shape: an SEA with 500+ LEAs, one Ed-Fi tenant per LEA, one ODS per LEA per year.
 - One state team owns every target. State staff edit, approve, and publish. `EA_Tenant` identifies the LEA; no new tags.
+- EA owns the deployment: every LEA ODS has the same API release, data standard, and extensions. The fingerprint check stays as a guard.
+- MDM is the only master-data writer. EA applies the Q14 claimset lock on every LEA ODS. No LEA-local descriptors or courses exist; 412 conflicts come only from out-of-band edits.
 - One manifest covers every compatible target, with no ceiling.
 
 |Workflow|When|Rules|
@@ -189,6 +191,7 @@ Courses behaviour by deployment:
 - **Version mappings are hand-written** for the version pairs StartingBlocks runs.
 - **The upstream connector carries SSRF and secret risk.** It needs team-bound secrets, allow-listed HTTPS origins, private-IP rejection, and no cross-origin redirects.
 - **Courses need their owning EdOrg in the target.** A missing SEA fails every Course create.
+- **Sole writer means no local codes.** An LEA needs a state change request for every new code. Non-owned EdOrg paths are sent on create only.
 - **Statewide fan-out needs tuning.** Set `applyConcurrency` and `applyBreakerPct` against real ODS load. A wrong `collectionOpensOn` lets deletes reach live data.
 
 ## 11. Out of scope (v1)

@@ -55,7 +55,7 @@ Pilot: EA's internal StartingBlocks tenant, ODS/API 7.3 / Data Standard 5.2, TPD
 
 Courses (Q26): opt-in per year set via a `courses` managed scope of kind `edorg`. A state catalog is MDM-owned; locally defined courses import read-only; non-state deployments leave the family off. `courseOfferings`, `sections`, `courseTranscripts` are out.
 
-Statewide (Q27): reference shape is an SEA with 500+ LEAs, one Ed-Fi tenant per LEA, one ODS per LEA per year. One state team; state staff only. `EA_Tenant` identifies the LEA; no new tags. One manifest, no ceiling. Apply runs under `applyConcurrency` with a circuit breaker at `applyBreakerPct`; re-run after a breaker suspension includes `pending`. Pre-collection setup vs in-year adjustment (after `collectionOpensOn`): in-year refuses deletes, needs a second approval by someone other than the creator, and runs in a quiet window. Drift is on demand.
+Statewide (Q27): reference shape is an SEA with 500+ LEAs, one Ed-Fi tenant per LEA, one ODS per LEA per year. EA owns the deployment; every LEA ODS has the same API, DS, and extensions. MDM is the only master-data writer (Q14 claimset lock); no LEA-local descriptors or courses. One state team; state staff only. `EA_Tenant` identifies the LEA; no new tags. One manifest, no ceiling. Apply runs under `applyConcurrency` with a circuit breaker at `applyBreakerPct`; re-run after a breaker suspension includes `pending`. Pre-collection setup vs in-year adjustment (after `collectionOpensOn`): in-year refuses deletes, needs a second approval by someone other than the creator, and runs in a quiet window. Drift is on demand.
 
 Do not reopen closed decisions in passing. If a change is needed, add a dated decision to `ProjectScope.md`, then propagate to plan → implementation → guide → mockup, in that order.
 
@@ -80,4 +80,5 @@ Do not reopen closed decisions in passing. If a change is needed, add a dated de
 - Mockup forms are `prompt()` stand-ins; replace when a real form pattern is chosen in Stage 1.
 - `ProjectScope.md` Q25 says re-run executes "remaining operations"; the plans interpret that as failed + skipped + uncertain, plus `pending` after a breaker or window suspension (Q27). Targets suspended for a fingerprint change still need a new manifest.
 - Q27 starting values (`applyConcurrency` 25, `applyBreakerPct` 10, Sat 01:00–05:00 window) are mockup placeholders; tune them against real ODS load.
+- Q27 sole-writer gap: non-owned EdOrg paths (`webSite`, addresses) have no writer after create. Decide whether statewide teams need the per-partner ownership override (§7) in v1.
 - Confirm `ProjectPlan.md` renders on one page in the team's Markdown viewer; trim Q-reference parentheses first if it spills.

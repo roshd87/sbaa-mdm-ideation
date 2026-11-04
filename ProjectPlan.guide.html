@@ -260,14 +260,15 @@
       <ul class="sm">
         <li>Each LEA is its own Ed-Fi tenant. Charters are LEAs.</li>
         <li>One state team owns every LEA target. State staff edit, approve, and publish.</li>
-        <li>LEA-local descriptors and courses import read-only. MDM never writes them.</li>
+        <li>EA runs every LEA's ODS on the same release and data standard.</li>
+        <li>MDM is the only writer of master data. An LEA asks the state for a new code.</li>
         <li>One manifest covers every compatible LEA. Region and LEA type appear in rollups only.</li>
       </ul>
       <h3>Apply at scale</h3>
       <ul class="sm">
         <li>Apply writes to a capped number of LEAs at once.</li>
         <li>A circuit breaker pauses the run when too many LEAs fail. A publisher resumes it as a re-run.</li>
-        <li>A busy LEA is blocked by itself. The other LEAs proceed.</li>
+        <li>An LEA whose read changes midway is blocked by itself. The other LEAs proceed.</li>
         <li>Drift scans are off by default. A publisher runs one on demand.</li>
       </ul>
     </div>
