@@ -1,6 +1,6 @@
 # Project Plan: MDM for StartingBlocks
 
-*Format: short, direct sentences throughout — one instruction each — except the ✎ Summary (narrative). Revision 6, 2026-10-07: one page; adds Courses (Q26).*
+*Format: short, direct sentences throughout — one instruction each — except the ✎ Summary (narrative). Revision 7, 2026-11-04: one page; adds statewide deployment (Q27).*
 
 ## ✎ Summary
 
@@ -14,7 +14,7 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 | 3 Remaining + years | All eight families are pushable. One year rolls from 6.x/DS4 to 7.x/DS5. File intake and upstream intake land as change requests. | L |
 | 4 Stretch: drift | The pilot receives a scheduled drift report. The UI flags the drifted records. | S |
 
-**Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; external partner joins at Stage 2 (Q15). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a).
+**Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; external partner joins at Stage 2 (Q15). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a). Statewide: one manifest fans out to every LEA tenant under a concurrency cap and circuit breaker; in-year adjustments need a quiet window and a second approval (Q27).
 
 ## Stage 0 — Foundations
 
@@ -27,8 +27,8 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 ## Stage 1 — Descriptors slice
 
 - **mdm-api:** Add year sets. Fingerprint each target; block incompatible targets. Add the import job with count-drift detection and write-shape normalisation; write the result as a change request inside managed scope. Add the change-request lifecycle with base revisions, frozen batches, CAS approval, and contributor-based separation of duties (Q3, Q8, Q9, Q13, Q13a, Q20, Q21, Q22, Q24).
-- **mdm-api:** Build immutable manifests: create/update by owned paths, deletes from approved tombstones only, observed ETags, target fingerprints. Apply one manifest at a time with `If-Match`; suspend a target whose fingerprint changed; order by `/metadata/data/v3/dependencies` (Q5, Q7, Q7a, Q21).
-- **mdm-api:** Record `ok | failed | skipped | conflict | uncertain` per operation. Mark the run `partial` or `suspended`. Re-run only failed, skipped, and `uncertain` operations of the same manifest; reconcile `uncertain` by natural key first. Make every descriptor path MDM-owned (Q12, Q14, Q25).
+- **mdm-api:** Build immutable manifests: create/update by owned paths, deletes from approved tombstones only, observed ETags, target fingerprints. Apply one manifest at a time with `If-Match`; suspend a target whose fingerprint changed; order by `/metadata/data/v3/dependencies`. Cap concurrent targets; suspend the run when the circuit breaker trips (Q5, Q7, Q7a, Q21, Q27).
+- **mdm-api:** Record `ok | failed | skipped | conflict | uncertain` per operation. Mark the run `partial` or `suspended`. Re-run only failed, skipped, and `uncertain` operations of the same manifest, plus `pending` after a breaker suspension; reconcile `uncertain` by natural key first. Make every descriptor path MDM-owned (Q12, Q14, Q25, Q27).
 - **mdm-fe:** Build the inbox Home, the Descriptor editor, the review screen with one batch diff, the target confirmation, the manifest preview, and the run results (Q3, Q5, Q7, Q12, Q13, Q17).
 - **sbaa_api_client:** Add `mdm_api_base_url`. Add year-set, target, record, change-request, import, manifest, apply, run, and re-run wrappers (Q11, Q18).
 - **Validation:** Record HTTP fixtures for unit tests. Run one nightly end-to-end test against the pilot dev ODS. Do not run an ODS/API in CI. Run the review-UX UAT (Q6, Q12, Q13).
@@ -38,6 +38,7 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 - **SBAA API:** Extend the claimset to the EdOrg resources (Q6).
 - **mdm-api:** Add the EdOrg registry entries with one natural key for each subtype (`schoolId`, `localEducationAgencyId`, …). Build the tree read-model. Add the mixed ownership lists; show non-owned fields only for visibility. Rely on `/dependencies` to place LEA before School. Add record-level reference edges; skip dependents of failures; block a parent delete when a child delete fails (Q3, Q7a, Q12, Q14).
 - **mdm-fe:** Build the tree editor. Mark owned and non-owned fields in the manifest preview (Q3, Q14).
+- **mdm-api:** Add `collectionOpensOn` and quiet windows. Gate in-year manifests: no deletes, a second approval by someone other than the creator (Q13a, Q27).
 - **Docs:** Write the claimset hard-enforcement guidance for fully-owned resources (Q14).
 
 ## Stage 3 — Remaining resources, years, intake
@@ -49,7 +50,7 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 
 ## Stage 4 — Stretch: drift scanning
 
-- **mdm-api:** Add a scheduled per-partner scan that reuses the manifest build, read-only. Persist drift reports. Add opt-in, schedule, and scope settings (Q14a).
+- **mdm-api:** Add a scheduled per-partner scan that reuses the manifest build, read-only. Persist drift reports. Add opt-in, schedule, and scope settings. Add the on-demand scan under the concurrency cap (Q14a, Q27).
 - **mdm-fe / Docs:** Flag drifted records. Build the report screen. Write the off-peak guidance. Measure the ODS read load (Q14a).
 
 ## Sequence and risks

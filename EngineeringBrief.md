@@ -1,6 +1,6 @@
 # Engineering Brief: MDM for SBAA
 
-Technical summary of the Master Data Management (MDM) addition to the StartingBlocks Admin App (SBAA). Sources of record: `ProjectScope.md` (decisions Q1–Q26), `ProjectPlan.md` (stages), `ImplementationPlan.md` (76 steps). This brief does not override them.
+Technical summary of the Master Data Management (MDM) addition to the StartingBlocks Admin App (SBAA). Sources of record: `ProjectScope.md` (decisions Q1–Q27), `ProjectPlan.md` (stages), `ImplementationPlan.md` (77 steps). This brief does not override them.
 
 ## 1. What ships
 
@@ -64,18 +64,19 @@ New module `packages/api/src/mdm/`. All paths sit under `/api`.
 - Versioned claimsets live in `packages/models/src/mdm/claimset.v<n>.json`. `ensure` reconciles each ODS to the current version before MDM pushes a new resource type.
 - Roles are seeded by data migration. All changes are additive and backward compatible.
 
-## 5. MDM data model (Q3, Q4, Q20, Q21, Q23, Q24, Q25)
+## 5. MDM data model (Q3, Q4, Q20, Q21, Q23, Q24, Q25, Q27)
 
 |Table|Key fields|
 |---|---|
-|`mdm_year_set`|`teamId`, `schoolYear`, pinned `dataStandard`, `keySchemaVersion`, `status`; unique (team, year)|
+|`mdm_year_set`|`teamId`, `schoolYear`, pinned `dataStandard`, `keySchemaVersion`, `status`, `collectionOpensOn`; unique (team, year)|
 |`mdm_record`|`yearSetId`, `resourceKey`, `canonicalKey` (jsonb), `canonicalKeyHash`, `data` (write-shape jsonb), `revision`|
 |`mdm_record_version`|append-only `before`/`after`, `changeRequestId`, `actorUserId`|
 |`mdm_managed_scope`|`yearSetId`, `resourceKey`, `scopeKind` `namespace \| edorgSubtree \| edorg \| all`, `scopeValue`|
 |`mdm_change_request` (+ `_contributor`)|`status` `draft → submitted → approved \| rejected`, `submittedHash`, `approverUserId`|
 |`mdm_change_item`|`op` `create \| update \| tombstone`, `baseRevision` or `expectAbsent`, `after`|
-|`mdm_push_manifest`|immutable: `publishedRevision`, `targets` + fingerprints, ordered `operations` with payloads and `observedEtag`, `ownershipPolicyVersion`, `includeDeletes`|
-|`mdm_push_run`, `mdm_push_run_record`|run `running \| success \| partial \| suspended`; operation `pending → in_flight → ok \| failed \| skipped \| conflict \| uncertain`|
+|`mdm_push_manifest`|immutable: `publishedRevision`, `targets` + fingerprints, `blockedTargets`, ordered `operations` with payloads and `observedEtag`, `ownershipPolicyVersion`, `includeDeletes`, `kind` `setup \| in_year`, `secondApproverUserId`|
+|`mdm_push_run`, `mdm_push_run_record`|run `running \| success \| partial \| suspended`, `suspendReason` `fingerprint \| breaker \| window`; operation `pending → in_flight → ok \| failed \| skipped \| conflict \| uncertain`|
+|`mdm_team_settings`|`applyConcurrency`, `applyBreakerPct`, `quietWindows` (Q27)|
 |`mdm_upstream_source`, `mdm_drift_settings`, `mdm_drift_report`|Stage 3–4|
 
 - Record identity is (year set, resource key, canonical natural key, key-schema version). The hash is an index only; on a hash match, compare `canonicalKey`.
@@ -127,7 +128,7 @@ Courses behaviour by deployment:
   - Its data standard matches the year set's pinned standard.
   - It exposes every registry resource.
   - The MDM application is unprofiled.
-- Read target state with `totalCount=true`. Abort as `incomplete` if `Total-Count` changes between pages.
+- Read target state with `totalCount=true`. If `Total-Count` changes between pages, block that target as `incomplete`; other targets proceed (Q27).
 - Compute operations:
   - `create`: full stored payload.
   - `update`: owned paths replaced in the target's current representation.
@@ -139,13 +140,26 @@ Courses behaviour by deployment:
   - The manifest is `approved`.
   - `publishedRevision` is still current.
   - No other run is active.
+- Process at most `applyConcurrency` targets at once (Q27).
 - Per target, re-check the fingerprint. On change, suspend that target.
+- Circuit breaker: when failed targets exceed `applyBreakerPct` of finished targets, stop and suspend the run (Q27).
 - Per operation:
   - Write with `If-Match`. 412 → `conflict`. Other 4xx/5xx → `failed` with the body. Unknown outcome → `uncertain`.
   - Dependents of a failed record → `skipped`.
 - A startup sweep marks stale `in_flight` rows `uncertain`.
-- Re-run uses the same manifest and never re-diffs. It retries only `failed`, `skipped`, and `uncertain` operations; each `uncertain` one is reconciled by a natural-key GET first. A `conflict` requires a new manifest.
+- Re-run uses the same manifest and never re-diffs. It retries only `failed`, `skipped`, and `uncertain` operations, plus `pending` ones after a breaker or window suspension; each `uncertain` one is reconciled by a natural-key GET first. A `conflict` requires a new manifest.
 - There is no rollback; the ODS/API is non-transactional.
+
+**Statewide deployment (Q27).** Reference shape: an SEA with 500+ LEAs, one Ed-Fi tenant per LEA, one ODS per LEA per year.
+- One state team owns every target. State staff edit, approve, and publish. `EA_Tenant` identifies the LEA; no new tags.
+- One manifest covers every compatible target, with no ceiling.
+
+|Workflow|When|Rules|
+|---|---|---|
+|Pre-collection setup|before `collectionOpensOn`|Normal gates. Quiescence holds because LEAs send no data yet.|
+|In-year adjustment|on or after `collectionOpensOn`|No deletes. Second approval by a human other than the creator (`POST /teams/:teamId/manifests/:id/approve`). The run waits for the next quiet window and suspends at window end.|
+
+- Drift scans are off by default. `POST /teams/:teamId/drift/scan` runs one on demand under `applyConcurrency`.
 
 **Roll-forward (Q4, Q9, Q24).** Create year set N+1, then clone published records into a draft change request using per-resource rules. Year-less resources clone unchanged. Crossing a standard runs the hand-written `ds4-to-ds5` mapping; unmapped required fields become item errors.
 
@@ -155,9 +169,9 @@ Courses behaviour by deployment:
 |---|---|---|
 |0 Foundations|SBAA roles + endpoints, packages, schema, auth, infra|`mdm-api` authenticates an SBAA user and resolves the pilot's tagged ODSs; credentials survive a restart without rotation.|
 |1 Descriptors|Full vertical slice, EA internal pilot (ODS/API 7.3, DS 5.2, TPDM)|Import → approve → manifest → apply to a dev ODS; conflict and uncertain cases demonstrated; visible in UI and `sbaa_api_client`.|
-|2 EdOrgs|Tree UI, mixed ownership, record-level reference graph|Ordered LEA + school creates; a SIS-owned field survives; a failed child delete blocks its parent.|
+|2 EdOrgs|Tree UI, mixed ownership, record-level reference graph, in-year gate|Ordered LEA + school creates; a SIS-owned field survives; a failed child delete blocks its parent; an in-year manifest refuses deletes and waits for its window.|
 |3 Remaining + years|Six families incl. Courses, roll-forward, DS4 → DS5, file + upstream intake|All endpoints pushable; a 6.x/DS4 sandbox year set rolls into DS5 and pushes; Courses scope behaviour verified.|
-|4 Drift (stretch)|Scheduled read-only manifest build|The pilot receives a drift report; drifted records flagged.|
+|4 Drift (stretch)|Scheduled or on-demand read-only manifest build|The pilot receives a drift report; drifted records flagged.|
 
 ## 9. Release order
 
@@ -175,12 +189,14 @@ Courses behaviour by deployment:
 - **Version mappings are hand-written** for the version pairs StartingBlocks runs.
 - **The upstream connector carries SSRF and secret risk.** It needs team-bound secrets, allow-listed HTTPS origins, private-IP rejection, and no cross-origin redirects.
 - **Courses need their owning EdOrg in the target.** A missing SEA fails every Course create.
+- **Statewide fan-out needs tuning.** Set `applyConcurrency` and `applyBreakerPct` against real ODS load. A wrong `collectionOpensOn` lets deletes reach live data.
 
 ## 11. Out of scope (v1)
 
 - Student, staff, and transactional data.
 - Course offerings, sections, and transcripts.
 - ODS SQL writes; scheduled pushes; rollback.
+- Per-user or per-region authority inside a team.
 - Topology management.
 - Direct-DB upstream sources; write-back to upstream sources.
 - An MDM user store.

@@ -17,7 +17,7 @@ Existing SBAA resource hierarchy: `Team → SB Environment (SBE) → Ed-Fi Tenan
 
 ## 3. Decisions
 
-_All closed 2026-10-06; Q26 added 2026-10-07. Each entry: question → decision → rationale._
+_All closed 2026-10-06; Q26 added 2026-10-07; Q27 added 2026-11-04. Each entry: question → decision → rationale._
 
 **Q1. What counts as master data (v1)?**
 → EdOrgs, Descriptors, Programs, Assessments (assessment metadata, not StudentAssessments), Chart of Accounts, Certifications, Descriptor Mappings, Courses (opt-in, Q26). App must have expansion capacity for future Ed-Fi resources. *(Courses added 2026-10-07: Q26.)*
@@ -156,6 +156,24 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 → Hard enforcement follows Q14. Lock `courses` for other applications only where the state publishes no local courses.
 → Rationale: three deployment shapes exist. A state that alone maintains the course catalog gets a fully MDM-owned catalog. A state catalog plus SIS-published local courses (e.g. South Carolina) splits on the course's EdOrg, which is part of the key, so state and local courses never collide. A non-state deployment receives courses from the SIS and leaves the family off. One scope rule covers all three without a per-partner mode switch. Course offerings and sections are per-school, per-session scheduling data, not master data.
 
+**Q27. Statewide deployment (added 2026-11-04).**
+→ Reference shape: an SEA with 500+ LEAs (e.g. Minnesota). Each LEA is one Ed-Fi tenant with one ODS per school year.
+→ One state SBAA Team owns every LEA target. State staff edit, approve, and publish. LEAs receive applied changes only.
+→ `EA_Tenant` identifies the LEA. Q5 gains no new tags. Region and LEA type appear in rollups only.
+→ LEA-local descriptors and courses fall outside managed scope and import read-only (Q20, Q26). Charters are LEAs.
+→ One manifest covers every compatible target. A manifest has no target ceiling.
+→ Apply writes at most N targets at once. The team setting `applyConcurrency` holds N.
+→ A circuit breaker suspends the run when failed targets exceed X% of finished targets. The team setting `applyBreakerPct` holds X.
+→ Re-run after a breaker suspension also executes `pending` operations. The run stays on the same manifest (Q25).
+→ An incomplete read blocks only that target in the manifest, with the reason `incomplete`. Other targets proceed.
+→ Two workflows exist per year set. **Pre-collection setup** runs before LEAs send data; quiescence holds without a window.
+→ **In-year adjustment** starts on the year set's `collectionOpensOn` date, set by `mdm-admin`.
+→ An in-year manifest contains no delete operations. `includeDeletes` is refused.
+→ An in-year manifest needs a second approval. The approver is a human with `approve` or `publish`, not the manifest's creator.
+→ An in-year run waits for the next quiet window configured by `mdm-admin`. Unfinished targets suspend when the window closes.
+→ Drift scans are off by default. A publisher starts an on-demand scan. Scans use the `applyConcurrency` cap.
+→ Rationale: per-LEA tenants make target count, not record count, the scale axis. One manifest keeps triage and re-run on one object. The breaker stops a systemic error before it reaches 500 ODSs. Before collection, no student data references master data, so setup needs no window. After collection opens, live records reference descriptors and courses; deletes risk orphaning them, and a SIS may write at any hour. A scheduled window, a second approver, and no tombstones contain that risk without a new role. Nightly drift across 500 ODSs costs read load that an on-demand scan avoids.
+
 ## 4. In Scope
 
 **Resources (v1 total):** EdOrgs, Descriptors, Programs, Assessments (metadata only), Chart of Accounts, Certifications, Descriptor Mappings, Courses (opt-in per year set, Q26). Resource set is config-driven so new Ed-Fi resources can be added without a schema change.
@@ -177,10 +195,12 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Targets resolved from SBAA tags (`School_Year`, optional `EA_Tenant`, `Environment_Type`) over ODSs the team owns; each target carries a fingerprint; incompatible targets blocked with a reason; list shown before push.
 - ODS/API is the only write path, via an MDM-owned integration app **per ODS**; SBAA is credential custodian.
 - Manifest-and-apply: GET current → create/update (+ approved tombstones when opted in) → immutable manifest → publisher applies with `If-Match`; `conflict`/`uncertain` states; re-run never re-diffs. Dependency order from `/metadata/data/v3/dependencies`.
-- Bulk imports and manifest reads run in a writer-quiescence window; `Total-Count` drift between pages aborts as `incomplete`.
+- Bulk imports and manifest reads run in a writer-quiescence window; `Total-Count` drift between pages aborts as `incomplete`. An incomplete read blocks only that target (Q27).
+- Statewide apply: one manifest across every LEA target; `applyConcurrency` cap; circuit breaker `applyBreakerPct` suspends the run (Q27).
+- In-year adjustment after `collectionOpensOn`: no deletes, a second approval by someone other than the manifest's creator, run waits for a configured quiet window (Q27).
 - Field ownership governs updates; creates send full payloads; managed scopes bound which records MDM may touch at all. Global ownership defaults with per-partner override hook.
 - Per-operation states `ok | failed | skipped | conflict | uncertain`; dependents of failed records skipped; run `success`, `partial`, or `suspended`; re-run completes the same manifest. Outcomes persisted with the acting user.
-- Stretch: opt-in scheduled background drift scan per partner, reusing the manifest build; read-only, produces drift reports and UI flags (Q14a).
+- Stretch: opt-in scheduled background drift scan per partner, reusing the manifest build; read-only, produces drift reports and UI flags (Q14a). Statewide teams leave the schedule off and scan on demand under the `applyConcurrency` cap (Q27).
 
 **Stages** (Q15)
 0. Foundations: SBAA endpoints and roles, `mdm-api`/`mdm-fe` packages, schema, auth, local dev and deploy.
@@ -195,7 +215,8 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Course offerings, sections, course transcripts, and other scheduling data (`courseOfferings`, `sections`, `courseTranscripts`) (Q26).
 - Creating, deleting, or configuring SBEs, tenants, or ODSs — topology remains SBAA's job; MDM only targets existing, tagged ODSs.
 - Direct ODS SQL writes via Lambda or any path other than the ODS/API.
-- Scheduled or automatic pushes — every push is user-initiated and approved (headless pushes only via `sbaa_api_client` by an authorized caller).
+- Scheduled or automatic pushes — every push is user-initiated and approved (headless pushes only via `sbaa_api_client` by an authorized caller). An approved in-year run may wait for its quiet window (Q27).
+- Per-user or per-region authority inside a team; LEA-level editors (Q27).
 - Field-level Ed-Fi permission enforcement — Ed-Fi claimsets are resource-level; MDM cannot lock individual fields on mixed-ownership resources.
 - Direct database connections to partner upstream systems — deferred from v1; HTTP-API sources only (Q8a decision).
 - Write-back to upstream sources, scheduled upstream pulls, generic ETL (Q8a).
@@ -214,6 +235,7 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Identity resolution, roles, and credential custody live in SBAA; SBAA releases must precede MDM releases (release order in `ImplementationPlan.md`).
 - Pilot capability matrix is closed (7.3 / DS 5.2 / TPDM / unprofiled; EA-hosted 6.x sandbox for DS4). Risk remains that the first external partner (Stage 2) runs a different release or profiles — the fingerprint check must block, not warn.
 - Writer-quiescence is an operational agreement, not a technical guarantee; count-drift abort is the only safety net.
+- Statewide fan-out (Q27): N and X need tuning against real ODS load before the first statewide apply. A missed `collectionOpensOn` date lets a setup manifest with tombstones run against live data.
 - The upstream connector adds network and secret authority; its SSRF and secret-ownership controls are mandatory Stage 3 acceptance criteria.
 - Courses reference their owning EdOrg. A target without that EdOrg (e.g. the SEA) refuses every Course create (Q26).
 

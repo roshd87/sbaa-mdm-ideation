@@ -2,7 +2,11 @@
 <!--
   PROTOTYPE — THROWAWAY. Not production code.
 
-  Reflects the decision state of ProjectScope.md as of 2026-10-07 (Q1–Q26 closed):
+  Reflects the decision state of ProjectScope.md as of 2026-11-04 (Q1–Q27 closed).
+  Scenario switch in the app bar: Pilot (one tenant) or Minnesota (Q27: one state team, 512 LEA
+  tenants, one manifest across every LEA, concurrency cap + circuit breaker, pre-collection setup
+  vs in-year adjustment with no deletes, a second approval, and a quiet window; on-demand drift).
+  Shared with both scenarios:
   SBAA chrome with a workflow inbox as Home; year sets with a pinned data standard; managed scopes
   and partner namespaces; change requests with base revisions, frozen submit, CAS approval and
   contributor-based separation of duties; targets with compatibility fingerprints; immutable
@@ -164,13 +168,14 @@ const users = [
   { id: 'a.chen', name: 'Alex Chen', role: 'mdm-admin', priv: ['read','edit','approve','publish','configure'] },
   { id: 'svc-pipeline', name: 'svc-pipeline (machine)', role: 'machine', priv: ['read','edit','publish'], machine: true },
 ];
-const S = { userIx: 1, open: { 2026: true, 2025: false, 2024: false }, push: { step: 1, year: 2026, env: 'dev', tenant: '', deletes: false, manifestId: null } };
+const S = { scenario: 'pilot', pg: {}, userIx: 1, open: { 2027: false, 2026: true, 2025: false, 2024: false }, push: { step: 1, year: 2026, env: 'dev', tenant: '', deletes: false, manifestId: null } };
+const TODAY = '2026-10-06';
 const me = () => users[S.userIx];
 const can = p => me().priv.includes(p);
 
 /* ======================= fake data ======================= */
-const partner = { team: 'EA StartingBlocks (internal pilot)' };
-const yearSets = [
+const partner = { get team() { return S.scenario === 'mn' ? 'Minnesota SEA · statewide (demo data)' : 'EA StartingBlocks (internal pilot)'; } };
+let yearSets = [
   { year: 2024, ds: 'DS 4.0', api: 'ODS-API 6.2', status: 'archived', revision: 118, keySchema: 'ds4-v1' },
   { year: 2025, ds: 'DS 5.1', api: 'ODS-API 7.2', status: 'active', revision: 402, keySchema: 'ds5-v1' },
   { year: 2026, ds: 'DS 5.2', api: 'ODS-API 7.3 + TPDM', status: 'current', revision: 517, keySchema: 'ds5-v1' },
@@ -185,9 +190,9 @@ const families = [
   { key: 'descriptorMappings', label: 'Descriptor Mappings', icon: 'bi-arrow-left-right', typed: false, owned: 'all', endpoints: ['descriptorMappings'] },
   { key: 'courses', label: 'Courses', icon: 'bi-book', typed: false, owned: 'all', optIn: true, endpoints: ['courses'] },
 ];
-const counts = { 2024: [612,38,14,22,140,0,31,0], 2025: [634,40,15,24,142,9,33,0], 2026: [641,41,15,24,142,9,33,1873] };
+let counts = { 2024: [612,38,14,22,140,0,31,0], 2025: [634,40,15,24,142,9,33,0], 2026: [641,41,15,24,142,9,33,1873] };
 
-const scopes = {
+let scopes = {
   2026: [{ kind: 'namespace', value: 'uri://ea.startingblocks.org' }, { kind: 'namespace', value: 'uri://lakeside.org' }, { kind: 'edorgSubtree', value: 'LEA 255901 (Lakeside ISD)' }, { kind: 'edorg', res: 'courses', value: 'SEA 255950 (state course catalog)' }],
   2025: [{ kind: 'namespace', value: 'uri://lakeside.org' }, { kind: 'edorgSubtree', value: 'LEA 255901 (Lakeside ISD)' }],
   2024: [{ kind: 'namespace', value: 'uri://lakeside.org' }],
@@ -232,15 +237,15 @@ const targets = [
   { id: 6, sbe: 'ea-sandbox-6x', tenant: 'sandbox', ods: 'EdFi_Ods_2024', odsInstanceId: 6, tags: { School_Year: '2024', Environment_Type: 'dev' }, fp: { api: '6.2', ds: 'DS 4.0', ext: [], profiles: [] }, fpHash: 'f4d2…66', app: 'mdm-sandbox-2024' },
   { id: 7, sbe: 'ea-pilot-dev', tenant: 'sandbox', ods: 'EdFi_Ods_scratch', odsInstanceId: 7, tags: {}, fp: { api: '7.3', ds: 'DS 5.2', ext: [], profiles: [] }, fpHash: '—', app: null },
 ];
-const compat = (t, year) => {
-  const ys = yearSets.find(y => y.year === year);
+const compat = (t, year, ys = yearSets.find(y => y.year === +year)) => {
   if (t.fp.ds !== ys.ds) return { ok: false, why: `data standard ${t.fp.ds} ≠ year set ${ys.ds}` };
   if (t.fp.profiles.length) return { ok: false, why: `MDM application is profiled (${t.fp.profiles.join(', ')})` };
   if (!t.fp.ext.includes('TPDM')) return { ok: true, note: 'TPDM absent — Certifications not pushable here' };
   return { ok: true };
 };
 const fmtTarget = t => `${t.sbe} / ${t.tenant} / ${t.ods}`;
-const resolveTargets = (year, env, tenant) => targets.filter(t => t.tags.School_Year === String(year) && (!env || t.tags.Environment_Type === env) && (!tenant || t.tags.EA_Tenant === tenant));
+// EA_Tenant accepts one or more comma-separated tenant tags (statewide: one tenant per LEA, Q27).
+const resolveTargets = (year, env, tenant) => { const want = (tenant || '').split(',').map(x => x.trim()).filter(Boolean); return targets.filter(t => (t.scen || 'pilot') === S.scenario && t.tags.School_Year === String(year) && (!env || t.tags.Environment_Type === env) && (!want.length || want.includes(t.tags.EA_Tenant))); };
 
 /* manifests (Q21) and runs (Q25) */
 let manifests = [
@@ -264,7 +269,7 @@ let runs = [
   { id: 6, manifestId: 29, year: 2026, when: '2026-09-15 09:15', by: 'j.okafor', targets: [fmtTarget(targets[0])], status: 'success', counts: { ok: 12, failed: 0, skipped: 0, conflict: 0, uncertain: 0 }, records: [] },
 ];
 
-const drift = [
+let drift = [
   { target: fmtTarget(targets[0]), scanned: '2026-10-06 02:10', owned: 2, external: 14,
     rows: [
       { key: 'schools · School#255901104', field: 'nameOfInstitution', kind: 'owned', mdm: 'West Lakeside Middle', ods: 'W. Lakeside MS' },
@@ -275,17 +280,114 @@ const drift = [
   { target: fmtTarget(targets[2]), scanned: '2026-10-06 02:12', owned: 0, external: 3, rows: [] },
 ];
 
-const sources = [
+let sources = [
   { name: 'State descriptor service', origin: 'https://descriptors.state.gov', auth: 'OAuth2 client credentials', secret: 'mdm/ea-pilot/state-descriptors', mapping: '/v2/descriptors → gradeLevelDescriptors, attendanceEventCategoryDescriptors', last: '2026-09-30 06:00', status: 'ok' },
   { name: 'PowerSchool SIS API', origin: 'https://ps.lakeside.org', auth: 'Bearer', secret: 'mdm/ea-pilot/powerschool', mapping: '/ws/v1/district/school → schools (nested addresses, gradeLevels)', last: '2026-09-15 06:00', status: 'warn' },
 ];
+sources[0].sample = { op: 'update', ep: 'gradeLevelDescriptors', key: 'uri://lakeside.org#PK', base: 3, recordId: 1, before: { description: 'Pre-Kindergarten' }, after: { description: 'Pre-Kindergarten (ages 3–4)' } };
+sources[1].sample = { op: 'update', ep: 'schools', key: 'School#255901104', base: 7, before: { shortNameOfInstitution: 'WLM' }, after: { shortNameOfInstitution: 'WLMS' } };
+
+/* ======================= scenarios (Q27) ======================= */
+// Pilot = the data above. Minnesota = one state team, 512 LEAs, one Ed-Fi tenant per LEA, one ODS per LEA per year.
+const PILOT = { yearSets, scopes, counts, descriptors, changeRequests, manifests, runs, drift, sources, push: { year: 2026, env: 'dev' },
+  settings: { applyConcurrency: 4, applyBreakerPct: 50, quietWindow: null } };
+
+const MN = (() => {
+  const regions = ['Metro', 'Northeast', 'Northwest', 'West Central', 'Central', 'Southwest', 'South Central', 'Southeast'];
+  const stems = ['Lakeview', 'Pine River', 'Cedar Falls', 'Prairie View', 'North Shore', 'Red Rock', 'Birch Lake', 'Iron Range', 'Willow Creek', 'Granite', 'Oak Ridge', 'Clearwater', 'Sauk Valley', 'Blue Earth', 'Elk River', 'Maple Grove', 'Riverbend', 'Two Harbors', 'Fox Lake', 'Long Prairie', 'Silver Bay', 'Stone Ridge', 'Wild Rice', 'Bear Creek'];
+  // 331 districts + 181 charters; region is SBAA tenant metadata, display only (no new tags).
+  const leas = Array.from({ length: 512 }, (_, i) => { const charter = i >= 331; return { id: 100001 + i, kind: charter ? 'charter' : 'district', region: regions[i % 8], name: `${stems[i % stems.length]} ${charter ? 'Charter School' : 'Public Schools'} #${i + 1}` }; });
+  let tid = 1000;
+  const mk = (l, i, year) => ({ id: tid++, scen: 'mn', lea: l, sbe: `mn-sea-prod-${(i % 4) + 1}`, tenant: `lea-${l.id}`, ods: `EdFi_Ods_${year}`, odsInstanceId: tid,
+    tags: { School_Year: String(year), EA_Tenant: `lea-${l.id}`, Environment_Type: 'prod' },
+    // 6 LEAs still on DS 5.1, 3 with a profiled MDM application (blocked), 9 without TPDM (compatible, no Certifications).
+    fp: i % 90 === 7 ? { api: '7.2', ds: 'DS 5.1', ext: [], profiles: [] } : i % 170 === 3 ? { api: '7.3', ds: 'DS 5.2', ext: ['TPDM'], profiles: ['Assessment-Readable'] } : { api: '7.3', ds: 'DS 5.2', ext: i % 61 === 9 ? [] : ['TPDM'], profiles: [] },
+    fpHash: ((l.id * 2654435761) >>> 0).toString(16).slice(0, 4) + '…' + String(year).slice(2), app: `mdm-lea-${l.id}-${year}` });
+  leas.forEach((l, i) => { targets.push(mk(l, i, 2026)); targets.push(mk(l, i, 2027)); });
+
+  const ns = 'uri://education.mn.gov';
+  const yearSets = [
+    { year: 2027, ds: 'DS 5.2', api: 'ODS-API 7.3 + TPDM', status: 'active', revision: 2290, keySchema: 'ds5-v1', collectionOpens: '2027-10-01' },
+    { year: 2026, ds: 'DS 5.2', api: 'ODS-API 7.3 + TPDM', status: 'current', revision: 2311, keySchema: 'ds5-v1', collectionOpens: '2026-10-01' },
+  ];
+  const sc = [{ kind: 'namespace', value: ns }, { kind: 'edorgSubtree', value: 'SEA 990000 (state EdOrgs)' }, { kind: 'edorg', res: 'courses', value: 'SEA 990000 (state course catalog)' }];
+  const scopes = { 2027: sc, 2026: sc };
+  const counts = { 2027: [702, 2621, 44, 61, 318, 12, 0, 2412], 2026: [698, 2614, 44, 61, 318, 12, 0, 2395] };
+  const descriptors = [
+    { id: 101, ep: 'attendanceEventCategoryDescriptors', ns, code: 'REL', short: 'Religious', desc: 'Excused – religious observance', rev: 4 },
+    { id: 102, ep: 'attendanceEventCategoryDescriptors', ns, code: 'ILL', short: 'Illness', desc: 'Excused – illness', rev: 3 },
+    { id: 103, ep: 'gradeLevelDescriptors', ns, code: 'PK', short: 'Pre-K', desc: 'Pre-Kindergarten', rev: 2 },
+    { id: 104, ep: 'programTypeDescriptors', ns, code: 'EL', short: 'English Learner', desc: 'English learner services', rev: 1 },
+    { id: 105, ep: 'courseLevelCharacteristicDescriptors', ns, code: 'CIS', short: 'College in the Schools', desc: 'Concurrent enrollment', rev: 1 },
+    { id: 106, ep: 'gradeLevelDescriptors', ns: 'uri://ed-fi.org', code: 'Ninth grade', short: 'Ninth grade', desc: 'Ninth grade', rev: 0 },
+    { id: 107, ep: 'attendanceEventCategoryDescriptors', ns: 'uri://lea-100042.example.org', code: 'SNOW', short: 'Snow day', desc: 'LEA-local: school closed', rev: 0 },
+  ];
+  const changeRequests = [
+    { id: 41, title: '2027–28 state course catalog refresh', year: 2027, author: 'm.alvarez', contributors: ['m.alvarez'], status: 'submitted', created: '2026-09-29', hash: 'c3d9…4e', items: [
+        { op: 'create', ep: 'courses', key: 'DATA-SCI#990000', base: null, after: { courseTitle: 'Data Science', numberOfParts: 1 } },
+        { op: 'update', ep: 'courses', key: 'ALG1#990000', base: 3, before: { courseTitle: 'Algebra I' }, after: { courseTitle: 'Algebra 1' } },
+        { op: 'tombstone', ep: 'courses', key: 'CIS-PHYS#990000', base: 2, before: { courseTitle: 'CIS Physics (retired)' } },
+      ] },
+    { id: 40, title: 'In-year: add field-trip attendance code', year: 2026, author: 'm.alvarez', contributors: ['m.alvarez'], status: 'submitted', created: '2026-10-04', hash: '7a20…b1', items: [
+        { op: 'create', ep: 'attendanceEventCategoryDescriptors', key: `${ns}#FLD`, base: null, after: { codeValue: 'FLD', shortDescription: 'Field Trip', description: 'Excused – school field trip' } },
+        { op: 'update', ep: 'attendanceEventCategoryDescriptors', key: `${ns}#REL`, base: 4, recordId: 101, before: { description: 'Excused – religious observance' }, after: { description: 'Excused – religious holiday or observance' } },
+      ] },
+    { id: 39, title: 'Roll-forward 2026 → 2027', year: 2027, author: 'r.dhanawade', contributors: ['r.dhanawade'], status: 'approved', created: '2026-08-12', hash: '19fe…0c', approver: 'a.chen', items: [] },
+  ];
+  const ok26 = targets.filter(t => t.scen === 'mn' && t.tags.School_Year === '2026' && compat(t, 2026, yearSets[1]).ok);
+  const ok27 = targets.filter(t => t.scen === 'mn' && t.tags.School_Year === '2027' && compat(t, 2027, yearSets[0]).ok);
+  const opsIn = [
+    { ix: 0, op: 'create', ep: 'courseLevelCharacteristicDescriptors', key: `${ns}#CIS-ONLINE`, etag: null },
+    { ix: 1, op: 'update', ep: 'courses', key: 'CIS-ENG#990000', etag: '"a913…"' },
+  ];
+  const manifests = [
+    { id: 213, year: 2027, kind: 'setup', publishedRevision: 2290, createdBy: 'r.dhanawade', created: '2026-10-05 15:10', status: 'approved', includeDeletes: true, targets: ok27.map(t => t.id), blocked: [], ops: [
+        { ix: 0, op: 'create', ep: 'courses', key: 'DATA-SCI#990000', etag: null },
+        { ix: 1, op: 'update', ep: 'attendanceEventCategoryDescriptors', key: `${ns}#REL`, etag: '"5248…"' },
+        { ix: 2, op: 'update', ep: 'courses', key: 'ALG1#990000', etag: '"c41d…"' },
+        { ix: 3, op: 'delete', ep: 'courses', key: 'CIS-PHYS#990000', etag: '"0b7e…"' },
+      ] },
+    { id: 212, year: 2026, kind: 'in_year', publishedRevision: 2311, createdBy: 'j.okafor', secondApprover: 'a.chen', created: '2026-10-02 16:20', status: 'done', includeDeletes: false, targets: ok26.map(t => t.id), blocked: [], ops: opsIn },
+  ];
+  // Run #88: the circuit breaker tripped. 6 of the first 52 finished targets failed (11.5% > 10%); 451 never started.
+  const cause88 = '400 Bad Request — courseLevelCharacteristic uri://education.mn.gov#CIS-ONLINE not found in this ODS';
+  const per88 = ok26.map((t, i) => i < 52 ? (i >= 46 ? { tid: t.id, ok: 1, failed: 1, skipped: 0, conflict: 0, uncertain: 0, pending: 0, cause: cause88 } : { tid: t.id, ok: 2, failed: 0, skipped: 0, conflict: 0, uncertain: 0, pending: 0 }) : { tid: t.id, ok: 0, failed: 0, skipped: 0, conflict: 0, uncertain: 0, pending: 2, cause: 'not started — circuit breaker' });
+  const runs = [
+    { id: 88, manifestId: 212, year: 2026, when: '2026-10-03 01:00 (quiet window)', by: 'j.okafor', targets: ok26.map(fmtTarget), status: 'suspended', suspendReason: 'breaker', perTarget: per88, counts: sumCounts(per88),
+      sample: fmtTarget(ok26[46]), records: [
+        { key: `courseLevelCharacteristicDescriptors · ${ns}#CIS-ONLINE`, op: 'create', state: 'ok' },
+        { key: 'courses · CIS-ENG#990000', op: 'update', state: 'failed', err: cause88 },
+      ] },
+  ];
+  const drift = ok26.filter((t, i) => i % 57 === 4 || i % 23 === 2).map((t, i) => ({ target: fmtTarget(t), lea: t.lea, scanned: '2026-10-05 22:10', owned: i % 3 === 0 ? 1 + (i % 2) : 0, external: 2 + (i % 5),
+    rows: i % 3 === 0 ? [{ key: 'courses · ALG1#990000', field: 'courseTitle', kind: 'owned', mdm: 'Algebra I', ods: 'Algebra 1 (local edit)' }, { key: `schools · School#${t.lea.id}0${i % 9}`, field: 'webSite', kind: 'external', mdm: '—', ods: `https://${t.tenant}.example.org` }] : [{ key: `schools · School#${t.lea.id}0${i % 9}`, field: 'webSite', kind: 'external', mdm: '—', ods: `https://${t.tenant}.example.org` }] }));
+  drift.meta = { scanned: ok26.length, when: '2026-10-05 22:10 (on demand, j.okafor)' };
+  const sources = [
+    { name: 'State course catalog service', origin: 'https://catalog.sea.example.org', auth: 'OAuth2 client credentials', secret: 'mdm/mn-sea/course-catalog', mapping: '/v1/courses → courses (SEA 990000)', last: '2026-09-28 06:00', status: 'ok',
+      sample: { op: 'update', ep: 'courses', key: 'ALG1#990000', base: 3, before: { courseTitle: 'Algebra I' }, after: { courseTitle: 'Algebra 1' } } },
+    { name: 'State descriptor service', origin: 'https://descriptors.sea.example.org', auth: 'OAuth2 client credentials', secret: 'mdm/mn-sea/descriptors', mapping: '/v2/descriptors → *Descriptors (uri://education.mn.gov)', last: '2026-09-30 06:00', status: 'ok',
+      sample: { op: 'update', ep: 'gradeLevelDescriptors', key: `${ns}#PK`, base: 2, recordId: 103, before: { description: 'Pre-Kindergarten' }, after: { description: 'Pre-Kindergarten (ages 3–4)' } } },
+  ];
+  return { yearSets, scopes, counts, descriptors, changeRequests, manifests, runs, drift, sources, push: { year: 2027, env: '' },
+    settings: { applyConcurrency: 25, applyBreakerPct: 10, quietWindow: 'Sat 01:00–05:00 America/Chicago' } };
+})();
+function sumCounts(per) { const c = { ok: 0, failed: 0, skipped: 0, conflict: 0, uncertain: 0, pending: 0 }; per.forEach(p => Object.keys(c).forEach(k => c[k] += p[k] || 0)); return c; }
+const DATA = { pilot: PILOT, mn: MN };
+const teamSettings = () => DATA[S.scenario].settings;
+const kindOf = year => { const y = yearSet(year); return y && y.collectionOpens && TODAY >= y.collectionOpens ? 'in_year' : 'setup'; };
+window.setScenario = sc => {
+  S.scenario = sc; S.pg = {};
+  ({ yearSets, scopes, counts, descriptors, changeRequests, manifests, runs, drift, sources } = DATA[sc]);
+  S.push = { step: 1, year: DATA[sc].push.year, env: DATA[sc].push.env, tenant: '', deletes: false, manifestId: null };
+  if (location.hash && location.hash !== '#/') go('#/'); else render();
+};
 
 /* ======================= utils ======================= */
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 const go = h => { location.hash = h; };
 const toast = m => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); };
 const I = (n, extra='') => `<i class="bi ${n} ${extra}"></i>`;
-const tagColor = s => ({ submitted:'yellow', 'in review':'yellow', draft:'blue', approved:'green', rejected:'red', stale:'red', partial:'yellow', suspended:'yellow', success:'green', done:'green', superseded:'', running:'blue', failed:'red', ok:'green', skipped:'yellow', conflict:'red', uncertain:'purple', current:'green', active:'blue', archived:'', prod:'red', dev:'blue', warn:'yellow', owned:'yellow', stretch:'purple', blocked:'red', compatible:'green', external:'' }[s] || '');
+const tagColor = s => ({ submitted:'yellow', 'in review':'yellow', draft:'blue', approved:'green', rejected:'red', stale:'red', partial:'yellow', suspended:'yellow', success:'green', done:'green', superseded:'', running:'blue', failed:'red', ok:'green', skipped:'yellow', conflict:'red', uncertain:'purple', current:'green', active:'blue', archived:'', prod:'red', dev:'blue', warn:'yellow', owned:'yellow', stretch:'purple', blocked:'red', compatible:'green', external:'', awaiting_approval:'yellow', in_year:'purple', setup:'blue', pending:'', scheduled:'blue', breaker:'red', window:'yellow', fingerprint:'yellow' }[s] || '');
 const T = (s, label) => `<span class="tag ${tagColor(s)}">${esc(label ?? s)}</span>`;
 const yearSet = y => yearSets.find(x => x.year === +y);
 const approvedManifests = y => manifests.filter(m => m.year === y && m.status === 'approved');
@@ -301,6 +403,15 @@ const page = ({ title, actions = [], body, custom = false }) => `
 const section = (h, body) => `<div class="section">${h ? `<h2>${h}</h2>` : ''}${body}</div>`;
 const tableSearch = (placeholder='Search', oninput='') => `<div class="row end" style="margin-bottom:1rem"><div class="search-wrap">${I('bi-search')}<input class="input pill" placeholder="${placeholder}" oninput="${oninput}"/></div><button class="btn link">More options</button></div>`;
 const pagination = (n, size=10) => n > size ? `<div class="pagination"><div class="grp"><button class="btn sm outline round" disabled>${I('bi-chevron-double-left')}</button><button class="btn sm outline round" disabled>${I('bi-chevron-left')}</button></div><span>1&nbsp;of&nbsp;${Math.ceil(n/size)}</span><div class="grp"><button class="btn sm outline round">${I('bi-chevron-right')}</button><button class="btn sm outline round">${I('bi-chevron-double-right')}</button></div><select class="input sm" style="width:auto;border-radius:8em"><option>Show 10</option><option>Show 25</option><option>Show 50</option></select></div>` : '';
+// Real pager: slices rows and keeps the page per list key in S.pg.
+const pg = (key, rows, size = 25) => {
+  const n = Math.max(1, Math.ceil(rows.length / size)); const p = Math.min(S.pg[key] || 0, n - 1);
+  const b = (to, icon, off) => `<button class="btn sm outline round" ${off ? 'disabled' : ''} onclick="setPg('${key}',${to})">${I(icon)}</button>`;
+  return { rows: rows.slice(p * size, (p + 1) * size), bar: rows.length > size ? `<div class="pagination"><div class="grp">${b(0, 'bi-chevron-double-left', !p)}${b(p - 1, 'bi-chevron-left', !p)}</div><span>${p + 1}&nbsp;of&nbsp;${n} · ${rows.length} rows</span><div class="grp">${b(p + 1, 'bi-chevron-right', p === n - 1)}${b(n - 1, 'bi-chevron-double-right', p === n - 1)}</div></div>` : '' };
+};
+window.setPg = (key, p) => { S.pg[key] = p; render(); };
+const leaCell = t => t.lea ? `${esc(t.lea.name)}<div class="sm muted">${t.lea.kind} · ${t.lea.region}</div>` : '—';
+const kindTag = m => m.kind === 'in_year' ? T('in_year', 'in-year adjustment') : m.kind === 'setup' ? T('setup', 'pre-collection setup') : '';
 const fpCell = t => `<span class="mono">${t.fp.api} · ${t.fp.ds}${t.fp.ext.length ? ' · ' + t.fp.ext.join(',') : ''}${t.fp.profiles.length ? ' · profiled' : ''}</span>`;
 const noPriv = p => `<div class="alert warning" style="margin-bottom:1rem">${I('bi-shield-lock-fill')}<div>You are <b>${me().id}</b> (${me().role}). This action needs <span class="mono">team.mdm:${p}</span>. Switch user in the app bar to demo.</div></div>`;
 
@@ -311,17 +422,21 @@ screens.home = () => {
   const review = changeRequests.filter(c => c.status === 'submitted');
   const drafts = changeRequests.filter(c => c.status === 'draft');
   const ready = manifests.filter(m => m.status === 'approved');
-  const attention = runs.filter(r => r.status === 'partial' || r.status === 'suspended');
+  const second = manifests.filter(m => m.status === 'awaiting_approval');
+  const attention = runs.filter(r => r.status === 'partial' || r.status === 'suspended' || r.waiting);
+  const cap = (list, href) => list.length > 5 ? `<div class="li"><a class="lnk" href="${href}">View all ${list.length} →</a></div>` : '';
+  const runLine = r => r.perTarget ? `${r.perTarget.length} targets · ${r.perTarget.filter(p => p.failed || p.conflict || p.uncertain).length} need triage · ${r.perTarget.filter(p => p.pending).length} pending` : `${r.counts.failed} failed · ${r.counts.skipped} skipped · ${r.counts.conflict} conflict · ${r.counts.uncertain} uncertain`;
   return page({ title: 'Home', custom: true, body: `
   <div class="grid2" style="margin-bottom:1.5rem">
     <div class="card" style="min-width:0;margin:0">
-      ${section(`Needs review · ${review.length}`, review.map(c => { const mine = c.contributors.includes(me().id); return `<div class="li"><div><a class="lnk" href="#/cr/${c.id}">#${c.id} ${esc(c.title)}</a><div class="sm muted">${c.year} · ${c.author} · ${c.items.length} items${mine ? ' · <b>you contributed — cannot approve</b>' : ''}${c.stale ? ' · ' + T('stale','base revision moved') : ''}</div></div><a class="btn sm" href="#/cr/${c.id}">Review</a></div>`; }).join('') || '<span class="muted">Inbox zero.</span>')}
+      ${section(`Needs review · ${review.length}`, review.slice(0, 5).map(c => { const mine = c.contributors.includes(me().id); return `<div class="li"><div><a class="lnk" href="#/cr/${c.id}">#${c.id} ${esc(c.title)}</a><div class="sm muted">${c.year} · ${c.author} · ${c.items.length} items${mine ? ' · <b>you contributed — cannot approve</b>' : ''}${c.stale ? ' · ' + T('stale','base revision moved') : ''}</div></div><a class="btn sm" href="#/cr/${c.id}">Review</a></div>`; }).join('') + cap(review, '#/cr') || '<span class="muted">Inbox zero.</span>')}
       ${section(`Your drafts · ${drafts.filter(c=>c.contributors.includes(me().id)).length}`, drafts.filter(c=>c.contributors.includes(me().id)).map(c => `<div class="li"><a class="lnk" href="#/cr/${c.id}">#${c.id} ${esc(c.title)}</a><span class="sm muted">${c.items.length} items</span></div>`).join('') || '<span class="muted">None</span>')}
     </div>
     <div class="card" style="min-width:0;margin:0">
-      ${section(`Approved manifests ready to apply · ${ready.length}`, ready.map(m => `<div class="li"><div><a class="lnk" href="#/manifests/${m.id}">Manifest #${m.id}</a> · ${m.year} · ${m.ops.length} ops · ${m.targets.length} target(s)<div class="sm muted">published rev ${m.publishedRevision} · by ${m.createdBy} · ${m.created}</div></div><a class="btn sm" href="#/manifests/${m.id}">${I('bi-upload')} Apply</a></div>`).join('') || '<span class="muted">Nothing approved and unapplied.</span>')}
-      ${section(`Runs needing attention · ${attention.length}`, attention.map(r => `<div class="li"><div><a class="lnk" href="#/runs/${r.id}">Run #${r.id}</a> · ${r.when}<div class="sm muted">${r.counts.failed} failed · ${r.counts.skipped} skipped · ${r.counts.conflict} conflict · ${r.counts.uncertain} uncertain</div></div>${T(r.status)}</div>`).join('') || '<span class="muted">None</span>')}
-      ${section(`Drift alerts ${T('stretch','stretch')}`, drift.filter(d => d.owned).map(d => `<div class="li"><div><a class="lnk" href="#/drift">${d.target}</a><div class="sm muted">${d.owned} owned-field differences · ${d.scanned}</div></div><a class="btn sm outline" href="#/push">Fix</a></div>`).join('') || '<span class="muted">None</span>')}
+      ${second.length ? section(`Manifests awaiting second approval · ${second.length}`, second.map(m => `<div class="li"><div><a class="lnk" href="#/manifests/${m.id}">Manifest #${m.id}</a> · ${m.year} · ${kindTag(m)}<div class="sm muted">built by ${m.createdBy}${m.createdBy === me().id ? ' · <b>you built it — cannot give the second approval</b>' : ''}</div></div><a class="btn sm" href="#/manifests/${m.id}">Review</a></div>`).join('')) : ''}
+      ${section(`Approved manifests ready to apply · ${ready.length}`, ready.slice(0, 5).map(m => `<div class="li"><div><a class="lnk" href="#/manifests/${m.id}">Manifest #${m.id}</a> · ${m.year} · ${m.ops.length} ops · ${m.targets.length} target(s) ${kindTag(m)}<div class="sm muted">published rev ${m.publishedRevision} · by ${m.createdBy} · ${m.created}</div></div><a class="btn sm" href="#/manifests/${m.id}">${I('bi-upload')} Apply</a></div>`).join('') || '<span class="muted">Nothing approved and unapplied.</span>')}
+      ${section(`Runs needing attention · ${attention.length}`, attention.slice(0, 5).map(r => `<div class="li"><div><a class="lnk" href="#/runs/${r.id}">Run #${r.id}</a> · ${r.when}<div class="sm muted">${runLine(r)}</div></div>${r.waiting ? T('scheduled', 'waiting for window') : T(r.status, r.suspendReason ? `${r.status} · ${r.suspendReason}` : r.status)}</div>`).join('') + cap(attention, '#/runs') || '<span class="muted">None</span>')}
+      ${section(`Drift alerts ${T('stretch','stretch')}`, drift.filter(d => d.owned).slice(0, 5).map(d => `<div class="li"><div><a class="lnk" href="#/drift">${d.target}</a><div class="sm muted">${d.owned} owned-field differences · ${d.scanned}</div></div><a class="btn sm outline" href="#/push">Fix</a></div>`).join('') + cap(drift.filter(d => d.owned), '#/drift') || '<span class="muted">None</span>')}
     </div>
   </div>
   <div class="card">${section('Year sets', `<table class="sbaa"><thead><tr><th>School year</th><th>Pinned standard</th><th>Status</th><th>Published rev</th><th>Compatible targets</th><th>Open change requests</th><th>Last run</th><th></th></tr></thead><tbody>
@@ -341,11 +456,12 @@ screens.year = (yr) => {
       <div class="field"><label class="view">Published revision</label><span class="mono">${y.revision}</span></div>
       <div class="field"><label class="view">Managed scopes</label>${(scopes[y.year]||[]).length} (<a class="lnk" href="#/settings">edit</a>)</div>
       <div class="field"><label class="view">Approved manifests</label>${approvedManifests(y.year).length}</div>
+      ${y.collectionOpens ? `<div class="field"><label class="view">Collection opens</label>${y.collectionOpens} · ${kindOf(y.year) === 'in_year' ? T('in_year', 'in-year adjustments only') : T('setup', 'pre-collection setup')}</div>` : ''}
     </div>
     ${section('Resource families', `<table class="sbaa"><thead><tr><th>Family</th><th>Endpoints</th><th>Records</th><th>Ownership</th><th>UI</th><th></th></tr></thead><tbody>
       ${famsFor(y.year).map(f => `<tr class="clickable" onclick="go('#/year/${y.year}/${f.key}')"><td>${I(f.icon)} &nbsp;${f.label}${f.ext ? ' ' + T('', f.ext) : ''}</td><td class="mono sm">${f.endpoints.slice(0,3).join(', ')}${f.endpoints.length > 3 ? ', …' : ''}</td><td>${counts[y.year][families.indexOf(f)]}</td><td>${f.owned === 'all' ? 'All paths MDM-owned' + (f.optIn ? ' (in scope)' : '') : 'Key + designated paths'}</td><td>${f.typed ? 'Purpose-built' : '<span class="muted">Schema-driven form</span>'}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>`)}
     ${section('Change requests', changeRequests.filter(c => c.year === y.year).length ? `<table class="sbaa"><thead><tr><th>#</th><th>Title</th><th>Author</th><th>Items</th><th>Status</th></tr></thead><tbody>${changeRequests.filter(c => c.year === y.year).map(c => `<tr class="clickable" onclick="go('#/cr/${c.id}')"><td>${c.id}</td><td>${esc(c.title)}</td><td>${c.author}</td><td>${c.items.length}</td><td>${T(c.status)}${c.stale ? ' ' + T('stale') : ''}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">None</span>')}
-    ${section('Targets (owned ODSs tagged School_Year=' + y.year + ')', `<table class="sbaa"><thead><tr><th>SB Environment</th><th>Ed-Fi Tenant</th><th>ODS</th><th>Fingerprint</th><th>Compatibility</th><th>MDM app</th></tr></thead><tbody>${ts.map(t => { const c = compat(t, y.year); return `<tr><td>${I('bi-hdd')} &nbsp;${t.sbe}</td><td>${I('bi-grid')} &nbsp;${t.tenant}</td><td class="mono">${t.ods}</td><td>${fpCell(t)}</td><td>${c.ok ? T('compatible') + (c.note ? ` <span class="sm muted">${c.note}</span>` : '') : T('blocked') + ` <span class="sm muted">${c.why}</span>`}</td><td>${t.app ? `${I('bi-key')} <span class="mono">${t.app}</span>` : '<span class="muted">none</span>'}</td></tr>`; }).join('')}</tbody></table>`)}` });
+    ${section(`Targets (owned ODSs tagged School_Year=${y.year}) · ${ts.filter(t => compat(t, y.year).ok).length} compatible of ${ts.length}`, `<table class="sbaa"><thead><tr><th>SB Environment</th><th>Ed-Fi Tenant</th>${S.scenario === 'mn' ? '<th style="min-width:12em">LEA</th>' : ''}<th>ODS</th><th>Fingerprint</th><th>Compatibility</th><th>MDM app</th></tr></thead><tbody>${pg('year-' + y.year, ts).rows.map(t => { const c = compat(t, y.year); return `<tr><td>${I('bi-hdd')} &nbsp;${t.sbe}</td><td>${I('bi-grid')} &nbsp;${t.tenant}</td>${S.scenario === 'mn' ? `<td>${leaCell(t)}</td>` : ''}<td class="mono">${t.ods}</td><td>${fpCell(t)}</td><td>${c.ok ? T('compatible') + (c.note ? ` <span class="sm muted">${c.note}</span>` : '') : T('blocked') + ` <span class="sm muted">${c.why}</span>`}</td><td>${t.app ? `${I('bi-key')} <span class="mono">${t.app}</span>` : '<span class="muted">none</span>'}</td></tr>`; }).join('')}</tbody></table>${pg('year-' + y.year, ts).bar}`)}` });
 };
 
 screens.records = (yr, fam) => {
@@ -371,8 +487,9 @@ screens.records = (yr, fam) => {
 window.filterDesc = v => document.querySelectorAll('#desc-table tr[data-k]').forEach(tr => tr.style.display = tr.dataset.k.includes(v.toLowerCase()) ? '' : 'none');
 window.editRecord = id => { const d = descriptors.find(x => x.id === id); const v = prompt('Description', d.desc); if (v == null || v === d.desc) return; addItem({ op: 'update', ep: d.ep, key: `${d.ns}#${d.code}`, base: d.rev, recordId: d.id, before: { description: d.desc }, after: { description: v } }); toast(`Added to draft (base revision ${d.rev})`); render(); };
 window.tombstoneRecord = id => { const d = descriptors.find(x => x.id === id); addItem({ op: 'tombstone', ep: d.ep, key: `${d.ns}#${d.code}`, base: d.rev, recordId: d.id, before: { codeValue: d.code, shortDescription: d.short } }); toast('Tombstone added to draft. Only approved tombstones can become deletes.'); render(); };
-window.newRecord = () => { const code = prompt('Code value (namespace uri://lakeside.org, gradeLevelDescriptors)'); if (!code) return; addItem({ op: 'create', ep: 'gradeLevelDescriptors', key: `uri://lakeside.org#${code}`, base: null, after: { codeValue: code, shortDescription: code, description: code } }); toast('Added to draft (expects absent in published set)'); render(); };
-window.importFromOds = (year) => { const ok = resolveTargets(year).filter(t => compat(t, year).ok); const t = ok[0]; const d = ensureDraft(); d.title = `Import from ${fmtTarget(t)}`; d.items.push({ op: 'create', ep: 'gradeLevelDescriptors', key: 'uri://lakeside.org#06', base: null, after: { codeValue: '06', shortDescription: 'Sixth grade', description: 'Sixth grade' } }); toast(`Import ran in the quiescence window (Total-Count stable across 7 pages). 1 new row inside scope → draft #${d.id}; 2 rows in uri://ed-fi.org stored read-only.`); go(`#/cr/${d.id}`); };
+const myNs = () => (scopes[2026] || []).filter(sc => sc.kind === 'namespace').map(sc => sc.value).pop();
+window.newRecord = () => { const code = prompt(`Code value (namespace ${myNs()}, gradeLevelDescriptors)`); if (!code) return; addItem({ op: 'create', ep: 'gradeLevelDescriptors', key: `${myNs()}#${code}`, base: null, after: { codeValue: code, shortDescription: code, description: code } }); toast('Added to draft (expects absent in published set)'); render(); };
+window.importFromOds = (year) => { const ok = resolveTargets(year).filter(t => compat(t, year).ok); const t = ok[0]; const d = ensureDraft(); d.title = `Import from ${fmtTarget(t)}`; d.items.push({ op: 'create', ep: 'gradeLevelDescriptors', key: `${myNs()}#06`, base: null, after: { codeValue: '06', shortDescription: 'Sixth grade', description: 'Sixth grade' } }); toast(`Import ran in the quiescence window (Total-Count stable across 7 pages). 1 new row inside scope → draft #${d.id}; 2 rows in uri://ed-fi.org stored read-only.`); go(`#/cr/${d.id}`); };
 
 screens.crList = () => page({ title: 'Change requests', actions: [{ icon: 'bi-plus-lg', text: 'Create', onclick: `const d=ensureDraft();go('#/cr/'+d.id)`, disabled: !can('edit') }], body: `${tableSearch()}
   <table class="sbaa"><thead><tr><th>#</th><th>Title</th><th>Year</th><th>Author</th><th>Contributors</th><th>Items</th><th>Created</th><th>Status</th><th></th></tr></thead><tbody>
@@ -418,123 +535,252 @@ window.crApprove = id => {
   const ys = yearSet(c.year);
   c.items.forEach(it => { if (it.recordId) { const d = descriptors.find(x => x.id === it.recordId); d.rev += 1; if (it.op === 'update' && it.after.description) d.desc = it.after.description; } });
   ys.revision += c.items.length || 1; c.status = 'approved'; c.approver = me().id;
-  manifests.filter(m => m.year === c.year && m.status === 'approved').forEach(m => m.status = 'superseded');
+  manifests.filter(m => m.year === c.year && ['approved','awaiting_approval'].includes(m.status)).forEach(m => m.status = 'superseded');
   toast(`#${id} approved by ${me().id}. Published rev → ${ys.revision}. Open manifests for ${c.year} superseded.`); render();
 };
 
 /* ---- push: targets → manifest preview → approve manifest → apply ---- */
-screens.push = () => {
-  const p = S.push; const ts = resolveTargets(p.year, p.env, p.tenant); const ok = ts.filter(t => compat(t, p.year).ok); const ys = yearSet(p.year);
-  const steps = `<div class="steps">${['Targets','Manifest preview','Approve manifest','Apply'].map((s,i) => `<span class="${p.step === i+1 ? 'on' : ''}">${i+1}. ${s}</span>`).join('')}</div>`;
-  if (!can('publish')) return page({ title: 'Build manifest', body: steps + noPriv('publish') });
-  if (p.step === 1) return page({ title: 'Build manifest', body: `${steps}
-    <div class="row wrap" style="margin-bottom:1.5rem">
-      <div class="field" style="margin:0"><label style="margin-top:0">Year set</label><select class="input" onchange="S.push.year=+this.value;render()">${yearSets.map(y => `<option value="${y.year}" ${y.year===p.year?'selected':''}>${y.year} · ${y.ds}</option>`).join('')}</select></div>
-      <div class="field" style="margin:0"><label style="margin-top:0">Environment_Type</label><select class="input" onchange="S.push.env=this.value;render()"><option value="">any</option>${['dev','prod'].map(e => `<option ${e===p.env?'selected':''}>${e}</option>`).join('')}</select></div>
-      <div class="field" style="margin:0"><label style="margin-top:0">EA_Tenant</label><select class="input" onchange="S.push.tenant=this.value;render()"><option value="">any</option>${['ea-pilot','charter'].map(e => `<option ${e===p.tenant?'selected':''}>${e}</option>`).join('')}</select></div>
-      <label class="chk" style="margin-top:1.75rem"><input type="checkbox" ${p.deletes?'checked':''} onchange="S.push.deletes=this.checked;render()"/> Include approved tombstones as deletes</label></div>
-    ${section(`Resolved targets · ${ok.length} compatible of ${ts.length}`, `<div class="sm muted" style="margin-bottom:.75rem">ODSs this team owns, tagged <span class="mono">School_Year=${p.year}</span>${p.env?` <span class="mono">Environment_Type=${p.env}</span>`:''}${p.tenant?` <span class="mono">EA_Tenant=${p.tenant}</span>`:''}. Year set pins <b>${ys.ds}</b>; published rev <span class="mono">${ys.revision}</span>.</div>
-      <table class="sbaa"><thead><tr><th>SB Environment</th><th>Ed-Fi Tenant</th><th>ODS</th><th>Tags</th><th>Fingerprint</th><th>Compatibility</th><th>MDM app</th></tr></thead><tbody>
-      ${ts.map(t => { const c = compat(t, p.year); return `<tr class="${c.ok ? '' : 'ro'}"><td>${I('bi-hdd')} &nbsp;${t.sbe}</td><td>${I('bi-grid')} &nbsp;${t.tenant}</td><td class="mono">${t.ods}</td><td>${Object.entries(t.tags).map(([k,v]) => T(v==='prod'||v==='dev'?v:'', `${k}=${v}`)).join(' ')}</td><td>${fpCell(t)}</td><td>${c.ok ? T('compatible') + (c.note ? `<div class="sm muted">${c.note}</div>` : '') : T('blocked') + `<div class="sm muted">${c.why}</div>`}</td><td>${t.app ? `${I('bi-key')} <span class="mono">${t.app}</span>` : '—'}</td></tr>`; }).join('') || '<tr><td colspan="7" class="muted">Nothing matches — check tags in SBAA.</td></tr>'}</tbody></table>
-      <div class="sm muted" style="margin-top:.75rem">Not targetable (no <span class="mono">School_Year</span> tag): ${targets.filter(t => !t.tags.School_Year).map(fmtTarget).join(', ')}</div>`)}
-    <div class="row between" style="margin-top:1.5rem"><span class="sm muted">${approvedManifests(p.year).length ? `${approvedManifests(p.year).length} approved manifest(s) already open for ${p.year}` : ''}</span><button class="btn primary" ${ok.length?'':'disabled'} onclick="S.push.step=2;render()">Read targets &amp; preview ${I('bi-arrow-right')}</button></div>` });
-  if (p.step === 2) return page({ title: 'Build manifest', custom: true, body: `<div class="card">${steps}
-    <div class="alert info" style="margin-bottom:1rem">${I('bi-info-circle-fill')}<div>Reads ran in the quiescence window; <span class="mono">Total-Count</span> stable across pages. Updates replace only owned paths in the target's current representation. Deletes come only from approved tombstones.</div></div>
-    ${ok.map(t => section(`${fmtTarget(t)} <span class="sm muted" style="font-weight:400">· via ${t.app} · fingerprint ${t.fpHash} · order from /metadata/data/v3/dependencies</span>`, `
-      <table class="sbaa"><thead><tr><th>Op</th><th>Record</th><th>ODS now</th><th>MDM (rev ${ys.revision})</th><th>Ownership</th><th>Observed ETag</th></tr></thead><tbody>
+// Statewide (Q27): a busy LEA's read comes back incomplete; only that target is blocked.
+const incompleteFor = ok => S.scenario === 'mn' ? ok.filter((t, i) => i % 240 === 120) : [];
+const workflowBanner = (year) => {
+  const y = yearSet(year); if (!y.collectionOpens) return '';
+  return kindOf(year) === 'in_year'
+    ? `<div class="alert warning" style="margin-bottom:1rem">${I('bi-calendar-event')}<div><b>In-year adjustment.</b> Collection opened ${y.collectionOpens}. This manifest cannot include deletes. It needs a second approval by someone other than you. Its run waits for the next quiet window (${teamSettings().quietWindow}).</div></div>`
+    : `<div class="alert info" style="margin-bottom:1rem">${I('bi-info-circle-fill')}<div><b>Pre-collection setup.</b> Collection opens ${y.collectionOpens}. LEAs send no data yet, so reads need no quiet window and approved tombstones may become deletes.</div></div>`;
+};
+const previewRows = (p, deletes) => S.scenario === 'mn' ? `
+        <tr class="diff-add"><td>${T('ok','create')}</td><td class="mono">courses · DATA-SCI · SEA 990000</td><td class="muted">—</td><td>Data Science</td><td>MDM (state catalog, <span class="mono">edorg</span> scope)</td><td class="mono">—</td></tr>
+        <tr class="diff-chg"><td>${T('warn','update')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://education.mn.gov#REL</td><td>Excused – religious observance</td><td>Excused – religious holiday or observance</td><td>MDM</td><td class="mono">"5248…"</td></tr>
+        <tr class="diff-chg"><td>${T('warn','update')}</td><td class="mono">courses · ALG1 · SEA 990000 · courseTitle</td><td>Algebra I</td><td>Algebra 1</td><td>MDM</td><td class="mono">"c41d…"</td></tr>
+        <tr class="diff-ext"><td>${T('','read-only')}</td><td class="mono">courses · ALG1-H · LEA 100042</td><td>Honors Algebra 1</td><td class="muted">outside managed scope</td><td>Locally defined course — never written</td><td class="mono">—</td></tr>
+        <tr class="diff-ext"><td>${T('','read-only')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://lea-100042.example.org#SNOW</td><td>Snow day</td><td class="muted">outside managed scope</td><td>LEA namespace — never written</td><td class="mono">—</td></tr>
+        ${deletes ? `<tr class="diff-del"><td>${T('failed','delete')}</td><td class="mono">courses · CIS-PHYS · SEA 990000</td><td>CIS Physics (retired)</td><td class="muted">tombstone (approved in #41)</td><td>MDM · no student data references it yet</td><td class="mono">"0b7e…"</td></tr>` : `<tr><td colspan="6" class="sm muted">${kindOf(p.year) === 'in_year' ? 'Deletes are refused for in-year manifests.' : 'Approved tombstones hidden — deletes are opt-in (step 1)'}</td></tr>`}` : `
         <tr class="diff-add"><td>${T('ok','create')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://lakeside.org#FLD</td><td class="muted">—</td><td>Field Trip</td><td>MDM (in scope)</td><td class="mono">—</td></tr>
         <tr class="diff-chg"><td>${T('warn','update')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://lakeside.org#REL</td><td>Excused – religious observance</td><td>Excused – religious holiday or observance</td><td>MDM</td><td class="mono">"5248…"</td></tr>
         <tr class="diff-chg"><td>${T('warn','update')}</td><td class="mono">schools · School#255901104 · nameOfInstitution</td><td>W. Lakeside MS</td><td>West Lakeside Middle School</td><td>MDM · drift → overwritten</td><td class="mono">"e01b…"</td></tr>
         <tr class="diff-ext"><td>${T('','visibility')}</td><td class="mono">schools · School#255901104 · webSite</td><td>https://wlms.lakeside.org</td><td class="muted">not managed</td><td>External (SIS) — preserved in PUT</td><td class="mono">"e01b…"</td></tr>
         <tr class="diff-ext"><td>${T('','read-only')}</td><td class="mono">gradeLevelDescriptors · uri://ed-fi.org#Ninth grade</td><td>Ninth grade</td><td class="muted">outside managed scope</td><td>Alliance namespace — never written</td><td class="mono">—</td></tr>
-        ${p.deletes ? `<tr class="diff-del"><td>${T('failed','delete')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://lakeside.org#TRU</td><td>Truant</td><td class="muted">tombstone (approved in #12)</td><td>MDM · ${T('warn','may be refused')}</td><td class="mono">"77a9…"</td></tr>` : `<tr><td colspan="6" class="sm muted">1 approved tombstone hidden — deletes are opt-in (step 1)</td></tr>`}
+        ${deletes ? `<tr class="diff-del"><td>${T('failed','delete')}</td><td class="mono">attendanceEventCategoryDescriptors · uri://lakeside.org#TRU</td><td>Truant</td><td class="muted">tombstone (approved in #12)</td><td>MDM · ${T('warn','may be refused')}</td><td class="mono">"77a9…"</td></tr>` : `<tr><td colspan="6" class="sm muted">1 approved tombstone hidden — deletes are opt-in (step 1)</td></tr>`}`;
+screens.push = () => {
+  const p = S.push; const ts = resolveTargets(p.year, p.env, p.tenant); const ok = ts.filter(t => compat(t, p.year).ok); const ys = yearSet(p.year);
+  const inYear = kindOf(p.year) === 'in_year'; const deletes = p.deletes && !inYear; const mn = S.scenario === 'mn';
+  const steps = `<div class="steps">${['Targets','Manifest preview','Approve manifest','Apply'].map((s,i) => `<span class="${p.step === i+1 ? 'on' : ''}">${i+1}. ${s}</span>`).join('')}</div>`;
+  if (!can('publish')) return page({ title: 'Build manifest', body: steps + noPriv('publish') });
+  if (p.step === 1) {
+    const blocked = ts.filter(t => !compat(t, p.year).ok); const ordered = [...blocked, ...ok]; const view = pg('push-targets', ordered);
+    const reasons = {}; blocked.forEach(t => { const w = compat(t, p.year).why; reasons[w] = (reasons[w] || 0) + 1; });
+    const regions = {}; ok.forEach(t => { if (t.lea) regions[t.lea.region] = (regions[t.lea.region] || 0) + 1; });
+    const tenantField = mn ? `<input class="input" style="width:22em" placeholder="all LEAs — or lea-100042, lea-100107" value="${esc(p.tenant)}" onchange="S.push.tenant=this.value.trim();S.pg={};render()"/>`
+      : `<select class="input" onchange="S.push.tenant=this.value;render()"><option value="">any</option>${['ea-pilot','charter'].map(e => `<option ${e===p.tenant?'selected':''}>${e}</option>`).join('')}</select>`;
+    return page({ title: 'Build manifest', body: `${steps}${workflowBanner(p.year)}
+    <div class="row wrap" style="margin-bottom:1.5rem">
+      <div class="field" style="margin:0"><label style="margin-top:0">Year set</label><select class="input" onchange="S.push.year=+this.value;S.pg={};render()">${yearSets.map(y => `<option value="${y.year}" ${y.year===p.year?'selected':''}>${y.year} · ${y.ds}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label style="margin-top:0">Environment_Type</label><select class="input" onchange="S.push.env=this.value;S.pg={};render()"><option value="">any</option>${['dev','prod'].map(e => `<option ${e===p.env?'selected':''}>${e}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label style="margin-top:0">EA_Tenant</label>${tenantField}</div>
+      <label class="chk" style="margin-top:1.75rem"><input type="checkbox" ${deletes?'checked':''} ${inYear?'disabled':''} onchange="S.push.deletes=this.checked;render()"/> Include approved tombstones as deletes${inYear ? ' <span class="sm muted">(not allowed in-year)</span>' : ''}</label></div>
+    ${section(`Resolved targets · ${ok.length} compatible of ${ts.length}`, `<div class="sm muted" style="margin-bottom:.75rem">ODSs this team owns, tagged <span class="mono">School_Year=${p.year}</span>${p.env?` <span class="mono">Environment_Type=${p.env}</span>`:''}${p.tenant?` <span class="mono">EA_Tenant=${esc(p.tenant)}</span>`:''}. Year set pins <b>${ys.ds}</b>; published rev <span class="mono">${ys.revision}</span>.</div>
+      ${ts.length > 10 ? `<div class="row wrap" style="margin-bottom:.5rem">${T('compatible', `${ok.length} compatible`)} ${T('blocked', `${blocked.length} blocked`)} ${Object.entries(reasons).map(([w, n]) => `<span class="sm muted">${n} × ${esc(w)}</span>`).join(' · ')}</div>
+      <div class="sm muted" style="margin-bottom:.75rem">Compatible by region (tenant metadata, display only): ${Object.entries(regions).map(([r, n]) => `${r} ${n}`).join(' · ')}. Blocked targets list first.</div>` : ''}
+      <table class="sbaa"><thead><tr><th>SB Environment</th><th>Ed-Fi Tenant</th>${mn ? '<th style="min-width:12em">LEA</th>' : ''}<th>ODS</th><th>Tags</th><th>Fingerprint</th><th>Compatibility</th><th>MDM app</th></tr></thead><tbody>
+      ${view.rows.map(t => { const c = compat(t, p.year); return `<tr class="${c.ok ? '' : 'ro'}"><td>${I('bi-hdd')} &nbsp;${t.sbe}</td><td>${I('bi-grid')} &nbsp;${t.tenant}</td>${mn ? `<td>${leaCell(t)}</td>` : ''}<td class="mono">${t.ods}</td><td>${Object.entries(t.tags).map(([k,v]) => T(v==='prod'||v==='dev'?v:'', `${k}=${v}`)).join(' ')}</td><td>${fpCell(t)}</td><td>${c.ok ? T('compatible') + (c.note ? `<div class="sm muted">${c.note}</div>` : '') : T('blocked') + `<div class="sm muted">${c.why}</div>`}</td><td>${t.app ? `${I('bi-key')} <span class="mono">${t.app}</span>` : '—'}</td></tr>`; }).join('') || `<tr><td colspan="${mn ? 8 : 7}" class="muted">Nothing matches — check tags in SBAA.</td></tr>`}</tbody></table>${view.bar}
+      ${mn ? '' : `<div class="sm muted" style="margin-top:.75rem">Not targetable (no <span class="mono">School_Year</span> tag): ${targets.filter(t => !t.scen && !t.tags.School_Year).map(fmtTarget).join(', ')}</div>`}`)}
+    <div class="row between" style="margin-top:1.5rem"><span class="sm muted">${approvedManifests(p.year).length ? `${approvedManifests(p.year).length} approved manifest(s) already open for ${p.year}` : ''}</span><button class="btn primary" ${ok.length?'':'disabled'} onclick="S.push.step=2;render()">Read targets &amp; preview ${I('bi-arrow-right')}</button></div>` });
+  }
+  if (p.step === 2) {
+    const inc = incompleteFor(ok); const readOk = ok.filter(t => !inc.includes(t));
+    const sample = readOk.length > 3 ? readOk.slice(0, 1) : readOk; const rest = readOk.slice(sample.length);
+    const differ = rest.filter((t, i) => i % 37 === 5); const opsN = deletes ? 4 : 3;
+    return page({ title: 'Build manifest', custom: true, body: `<div class="card">${steps}${workflowBanner(p.year)}
+    <div class="alert info" style="margin-bottom:1rem">${I('bi-info-circle-fill')}<div>${inYear || !ys.collectionOpens ? 'Reads ran in the quiescence window' : 'Reads ran before collection opened'}; <span class="mono">Total-Count</span> checked across pages${mn ? ` for each target, ${teamSettings().applyConcurrency} targets at a time` : ''}. Updates replace only owned paths in the target's current representation. Deletes come only from approved tombstones.</div></div>
+    ${sample.map(t => section(`${fmtTarget(t)} <span class="sm muted" style="font-weight:400">· ${t.lea ? esc(t.lea.name) + ' · ' : ''}via ${t.app} · fingerprint ${t.fpHash} · order from /metadata/data/v3/dependencies</span>`, `
+      <table class="sbaa"><thead><tr><th>Op</th><th>Record</th><th>ODS now</th><th>MDM (rev ${ys.revision})</th><th>Ownership</th><th>Observed ETag</th></tr></thead><tbody>${previewRows(p, deletes)}
       </tbody></table>`)).join('')}
-    <div class="row between" style="margin-top:1.5rem"><button class="btn" onclick="S.push.step=1;render()">${I('bi-arrow-left')} Targets</button><button class="btn primary" onclick="approveManifest()">${I('bi-lock')} Approve manifest</button></div></div>` });
+    ${rest.length ? section(`Other targets · ${rest.length}`, `<div class="li"><div><b>${rest.length - differ.length}</b> targets: same ${opsN} operations as the sample, each with its own observed ETags.</div></div>
+      <div class="li"><div><b>${differ.length}</b> targets differ because their current ODS state differs (for example, <span class="mono">DATA-SCI</span> already present, so no create): <span class="sm mono">${differ.slice(0, 4).map(t => t.tenant).join(', ')}${differ.length > 4 ? ', …' : ''}</span></div></div>
+      ${inc.length ? `<div class="li"><div>${T('blocked')} <b>${inc.length}</b> targets blocked at read: <span class="mono">incomplete</span> — <span class="mono">Total-Count</span> changed between pages (<span class="mono">${inc.map(t => t.tenant).join(', ')}</span>). The other targets proceed.</div></div>` : ''}
+      <div class="sm muted" style="margin-top:.5rem">Manifest total ≈ ${(opsN * readOk.length).toLocaleString()} operations across ${readOk.length} targets.</div>`) : ''}
+    <div class="row between" style="margin-top:1.5rem"><button class="btn" onclick="S.push.step=1;render()">${I('bi-arrow-left')} Targets</button><button class="btn primary" onclick="approveManifest()">${I('bi-lock')} ${inYear ? 'Approve (first of two)' : 'Approve manifest'}</button></div></div>` });
+  }
   return screens.manifest(p.manifestId);
 };
 window.approveManifest = () => {
-  const p = S.push; const ok = resolveTargets(p.year, p.env, p.tenant).filter(t => compat(t, p.year).ok); const ys = yearSet(p.year);
+  const p = S.push; const all = resolveTargets(p.year, p.env, p.tenant).filter(t => compat(t, p.year).ok); const inc = incompleteFor(all); const ok = all.filter(t => !inc.includes(t)); const ys = yearSet(p.year);
+  const kind = kindOf(p.year); const deletes = p.deletes && kind !== 'in_year'; const mn = S.scenario === 'mn';
   const id = Math.max(...manifests.map(m => m.id)) + 1;
-  const ops = [
+  const ops = mn ? [
+    { ix: 0, op: 'create', ep: 'courses', key: 'DATA-SCI#990000', etag: null },
+    { ix: 1, op: 'update', ep: 'attendanceEventCategoryDescriptors', key: 'uri://education.mn.gov#REL', etag: '"5248…"' },
+    { ix: 2, op: 'update', ep: 'courses', key: 'ALG1#990000', etag: '"c41d…"' },
+  ] : [
     { ix: 0, op: 'create', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#FLD', etag: null },
     { ix: 1, op: 'update', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#REL', etag: '"5248…"' },
     { ix: 2, op: 'update', ep: 'schools', key: 'School#255901104', etag: '"e01b…"' },
   ];
-  if (p.deletes) ops.push({ ix: 3, op: 'delete', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#TRU', etag: '"77a9…"' }, { ix: 4, op: 'delete', ep: 'descriptorMappings', key: 'TRU→ABS', etag: '"3b3b…"' });
-  manifests.unshift({ id, year: p.year, publishedRevision: ys.revision, createdBy: me().id, created: '2026-10-06 now', status: 'approved', includeDeletes: p.deletes, targets: ok.map(t => t.id), ops });
-  p.step = 4; p.manifestId = id; toast(`Manifest #${id} approved and frozen (rev ${ys.revision}, ${ops.length} ops, ${ok.length} target(s))`); go(`#/manifests/${id}`);
+  if (deletes) mn ? ops.push({ ix: 3, op: 'delete', ep: 'courses', key: 'CIS-PHYS#990000', etag: '"0b7e…"' })
+    : ops.push({ ix: 3, op: 'delete', ep: 'attendanceEventCategoryDescriptors', key: 'uri://lakeside.org#TRU', etag: '"77a9…"' }, { ix: 4, op: 'delete', ep: 'descriptorMappings', key: 'TRU→ABS', etag: '"3b3b…"' });
+  const status = kind === 'in_year' ? 'awaiting_approval' : 'approved';
+  manifests.unshift({ id, year: p.year, kind, publishedRevision: ys.revision, createdBy: me().id, created: `${TODAY} now`, status, includeDeletes: deletes, targets: ok.map(t => t.id), blocked: inc.map(t => ({ id: t.id, why: 'incomplete — Total-Count changed between pages' })), ops });
+  p.step = 4; p.manifestId = id;
+  toast(status === 'approved' ? `Manifest #${id} approved and frozen (rev ${ys.revision}, ${ops.length} ops, ${ok.length} target(s))` : `Manifest #${id} frozen. In-year: it needs a second approval by someone other than ${me().id}.`);
+  go(`#/manifests/${id}`);
 };
 
-screens.manifests = () => page({ title: 'Manifests', body: `<table class="sbaa"><thead><tr><th>#</th><th>Year set</th><th>Published rev</th><th>Ops</th><th>Targets</th><th>Deletes</th><th>Approved by</th><th>Status</th><th></th></tr></thead><tbody>
-  ${manifests.map(m => `<tr class="clickable" onclick="go('#/manifests/${m.id}')"><td>${m.id}</td><td>${m.year}</td><td class="mono">${m.publishedRevision}</td><td>${m.ops.length}</td><td class="sm">${m.targets.map(id => fmtTarget(targets.find(t => t.id === id))).join('<br/>')}</td><td>${m.includeDeletes ? 'yes' : 'no'}</td><td>${m.createdBy}</td><td>${T(m.status)}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>` });
+const targetsCell = list => list.length > 3 ? `${list.length} targets` : list.join('<br/>');
+screens.manifests = () => { const v = pg('manifests', manifests); return page({ title: 'Manifests', body: `<table class="sbaa"><thead><tr><th>#</th><th>Year set</th><th>Workflow</th><th>Published rev</th><th>Ops</th><th>Targets</th><th>Deletes</th><th>Approved by</th><th>Status</th><th></th></tr></thead><tbody>
+  ${v.rows.map(m => `<tr class="clickable" onclick="go('#/manifests/${m.id}')"><td>${m.id}</td><td>${m.year}</td><td>${kindTag(m)}</td><td class="mono">${m.publishedRevision}</td><td>${m.ops.length}</td><td class="sm">${targetsCell(m.targets.map(id => fmtTarget(targets.find(t => t.id === id))))}</td><td>${m.includeDeletes ? 'yes' : 'no'}</td><td>${m.createdBy}${m.secondApprover ? ' + ' + m.secondApprover : ''}</td><td>${T(m.status, m.status.replace('_', ' '))}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>${v.bar}` }); };
 
 screens.manifest = (id) => {
   const m = manifests.find(x => x.id === +id); if (!m) return page({ title: 'Not found', body: '' });
   const ys = yearSet(m.year); const live = ys.revision === m.publishedRevision; const runsFor = runs.filter(r => r.manifestId === m.id);
-  const applyBlock = !can('publish') ? 'needs team.mdm:publish' : m.status !== 'approved' ? `manifest is ${m.status}` : !live ? 'superseded — published revision advanced' : runsFor.some(r => r.status === 'running') ? 'a run is already active' : null;
-  return page({ title: `Manifest #${m.id}`, actions: [{ icon: 'bi-upload', text: 'Apply', onclick: `applyManifest(${m.id})`, disabled: !!applyBlock, title: applyBlock || 'Apply with If-Match' }, { icon: 'bi-x-circle', text: 'Discard', onclick: `toast('Manifest discarded')`, disabled: !can('publish') || m.status !== 'approved' }], body: `
+  const secondBlock = m.status !== 'awaiting_approval' ? null : me().machine ? 'machine identities never approve' : !(can('approve') || can('publish')) ? 'needs team.mdm:approve or team.mdm:publish' : me().id === m.createdBy ? 'you built this manifest' : null;
+  const applyBlock = !can('publish') ? 'needs team.mdm:publish' : m.status === 'awaiting_approval' ? 'in-year manifest needs a second approval' : m.status !== 'approved' ? `manifest is ${m.status}` : !live ? 'superseded — published revision advanced' : runsFor.some(r => r.status === 'running') ? 'a run is already active' : null;
+  const ts = m.targets.map(i => targets.find(x => x.id === i)); const tv = pg('m-' + m.id, ts);
+  const actions = [
+    ...(m.status === 'awaiting_approval' ? [{ icon: 'bi-check2-all', text: 'Second approval', onclick: `secondApprove(${m.id})`, disabled: !!secondBlock, title: secondBlock || 'Approve the in-year manifest (second approver)' }] : []),
+    { icon: 'bi-upload', text: m.kind === 'in_year' ? 'Apply in next window' : 'Apply', onclick: `applyManifest(${m.id})`, disabled: !!applyBlock, title: applyBlock || 'Apply with If-Match' },
+    { icon: 'bi-x-circle', text: 'Discard', onclick: `toast('Manifest discarded')`, disabled: !can('publish') || !['approved','awaiting_approval'].includes(m.status) }];
+  return page({ title: `Manifest #${m.id}`, actions, body: `
     <div class="attrs" style="margin-bottom:2.5rem">
-      <div class="field"><label class="view">Status</label>${T(live || m.status !== 'approved' ? m.status : 'superseded')}</div>
+      <div class="field"><label class="view">Status</label>${T(live || !['approved','awaiting_approval'].includes(m.status) ? m.status : 'superseded', (live || !['approved','awaiting_approval'].includes(m.status) ? m.status : 'superseded').replace('_', ' '))} ${kindTag(m)}</div>
       <div class="field"><label class="view">Year set</label><a class="lnk" href="#/year/${m.year}">${m.year}</a> · ${ys.ds}</div>
       <div class="field"><label class="view">Published revision</label><span class="mono">${m.publishedRevision}</span> ${live ? '<span class="sm muted">(current)</span>' : `<span class="sm" style="color:var(--red-800)">(current is ${ys.revision})</span>`}</div>
-      <div class="field"><label class="view">Approved by</label>${m.createdBy} · ${m.created}</div>
-      <div class="field"><label class="view">Deletes included</label>${m.includeDeletes ? 'yes (approved tombstones only)' : 'no'}</div>
+      <div class="field"><label class="view">Approved by</label>${m.createdBy} · ${m.created}${m.kind === 'in_year' ? `<div class="sm muted">Second approval: ${m.secondApprover || '<b>pending</b>'}</div>` : ''}</div>
+      <div class="field"><label class="view">Deletes included</label>${m.includeDeletes ? 'yes (approved tombstones only)' : m.kind === 'in_year' ? 'no (refused in-year)' : 'no'}</div>
+      ${m.kind === 'in_year' ? `<div class="field"><label class="view">Runs in</label>${teamSettings().quietWindow}</div>` : ''}
     </div>
+    ${secondBlock && m.status === 'awaiting_approval' ? `<div class="alert warning" style="margin-bottom:1.5rem">${I('bi-shield-lock-fill')}<div><b>You cannot give the second approval:</b> ${secondBlock}. A different human with <span class="mono">approve</span> or <span class="mono">publish</span> must approve.</div></div>` : ''}
     ${applyBlock && m.status === 'approved' ? `<div class="alert warning" style="margin-bottom:1.5rem">${I('bi-exclamation-triangle-fill')}<div><b>Cannot apply:</b> ${applyBlock}.${!live ? ' Build a new manifest from the current published revision.' : ''}</div></div>` : ''}
-    ${section('Targets (fingerprint frozen at approval; re-checked before each target)', `<table class="sbaa"><thead><tr><th>Target</th><th>MDM app</th><th>Fingerprint</th><th>Tags</th></tr></thead><tbody>${m.targets.map(id => { const t = targets.find(x => x.id === id); return `<tr><td>${fmtTarget(t)}</td><td class="mono">${t.app}</td><td>${fpCell(t)} <span class="mono muted">${t.fpHash}</span></td><td>${Object.entries(t.tags).map(([k,v]) => T(v==='prod'||v==='dev'?v:'', `${k}=${v}`)).join(' ')}</td></tr>`; }).join('')}</tbody></table>`)}
-    ${section(`Operations · ${m.ops.length} (dependency order)`, m.ops.length ? `<table class="sbaa"><thead><tr><th>#</th><th>Op</th><th>Record</th><th>If-Match</th></tr></thead><tbody>${m.ops.map(o => `<tr class="${{create:'diff-add',update:'diff-chg',delete:'diff-del'}[o.op]}"><td class="mono">${o.ix}</td><td>${T({create:'ok',update:'warn',delete:'failed'}[o.op], o.op)}</td><td class="mono">${o.ep} · ${esc(o.key)}</td><td class="mono">${o.etag || '—'}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">Operations summarised in the run.</span>')}
+    ${section(`Targets · ${ts.length} (fingerprint frozen at approval; re-checked before each target)`, `<table class="sbaa"><thead><tr><th>Target</th>${S.scenario === 'mn' ? '<th style="min-width:12em">LEA</th>' : ''}<th>MDM app</th><th>Fingerprint</th><th>Tags</th></tr></thead><tbody>${tv.rows.map(t => `<tr><td>${fmtTarget(t)}</td>${S.scenario === 'mn' ? `<td>${leaCell(t)}</td>` : ''}<td class="mono">${t.app}</td><td>${fpCell(t)} <span class="mono muted">${t.fpHash}</span></td><td>${Object.entries(t.tags).map(([k,v]) => T(v==='prod'||v==='dev'?v:'', `${k}=${v}`)).join(' ')}</td></tr>`).join('')}</tbody></table>${tv.bar}`)}
+    ${(m.blocked || []).length ? section(`Blocked at build · ${m.blocked.length}`, m.blocked.map(x => `<div class="li"><span class="mono">${fmtTarget(targets.find(t => t.id === x.id))}</span>${T('blocked')} <span class="sm muted">${x.why}</span></div>`).join('')) : ''}
+    ${section(`Operations · ${m.ops.length} per target (dependency order)`, m.ops.length ? `<table class="sbaa"><thead><tr><th>#</th><th>Op</th><th>Record</th><th>If-Match</th></tr></thead><tbody>${m.ops.map(o => `<tr class="${{create:'diff-add',update:'diff-chg',delete:'diff-del'}[o.op]}"><td class="mono">${o.ix}</td><td>${T({create:'ok',update:'warn',delete:'failed'}[o.op], o.op)}</td><td class="mono">${o.ep} · ${esc(o.key)}</td><td class="mono">${o.etag || '—'}${ts.length > 1 && o.etag ? ' <span class="sm muted">(sample target)</span>' : ''}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">Operations summarised in the run.</span>')}
     ${runsFor.length ? section('Runs', runsFor.map(r => `<div class="li"><a class="lnk" href="#/runs/${r.id}">Run #${r.id} · ${r.when} · ${r.by}</a>${T(r.status)}</div>`).join('')) : ''}` });
 };
-window.applyManifest = (id) => {
-  const m = manifests.find(x => x.id === id); const t = targets.find(x => x.id === m.targets[0]);
-  const rid = Math.max(...runs.map(r => r.id)) + 1;
-  const records = m.ops.map(o => {
-    if (o.op === 'delete' && o.ep === 'attendanceEventCategoryDescriptors') return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'failed', err: '409 Conflict — cannot be deleted because it is a dependency of the \'StudentSchoolAttendanceEvent\' entity.' };
-    if (o.op === 'delete') return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'skipped', err: 'blocked: parent tombstone attendanceEventCategoryDescriptors#TRU failed' };
-    if (o.key === 'uri://lakeside.org#REL') return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'conflict', err: '412 Precondition Failed — ETag "5248…" no longer matches (SIS vendor wrote after manifest). Needs a new manifest.' };
-    return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'ok' };
-  });
-  const counts = { ok: 0, failed: 0, skipped: 0, conflict: 0, uncertain: 0 }; records.forEach(r => counts[r.state]++);
-  const status = counts.failed || counts.skipped || counts.conflict || counts.uncertain ? 'partial' : 'success';
-  runs.unshift({ id: rid, manifestId: m.id, year: m.year, when: '2026-10-06 now', by: me().id, targets: m.targets.map(i => fmtTarget(targets.find(x => x.id === i))), status, counts, records });
-  m.status = 'done'; toast(`Run #${rid} ${status}: ${counts.ok} ok · ${counts.failed} failed · ${counts.skipped} skipped · ${counts.conflict} conflict`); go(`#/runs/${rid}`);
-};
+window.secondApprove = id => { const m = manifests.find(x => x.id === id); m.status = 'approved'; m.secondApprover = me().id; toast(`Manifest #${id}: second approval by ${me().id}. Ready to apply in the next quiet window.`); render(); };
 
+// Per-operation outcomes for one target (the sample target in a statewide run).
+const opRecords = m => m.ops.map(o => {
+  if (o.op === 'delete' && o.ep === 'attendanceEventCategoryDescriptors') return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'failed', err: '409 Conflict — cannot be deleted because it is a dependency of the \'StudentSchoolAttendanceEvent\' entity.' };
+  if (o.op === 'delete' && o.ep === 'descriptorMappings') return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'skipped', err: 'blocked: parent tombstone attendanceEventCategoryDescriptors#TRU failed' };
+  if (o.key.endsWith('#REL')) return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'conflict', err: '412 Precondition Failed — ETag "5248…" no longer matches (SIS vendor wrote after manifest). Needs a new manifest.' };
+  return { key: `${o.ep} · ${o.key}`, op: o.op, state: 'ok' };
+});
+// Statewide outcome for target i (deterministic demo distribution).
+const synthTarget = (t, i, n) => {
+  const z = { tid: t.id, ok: n, failed: 0, skipped: 0, conflict: 0, uncertain: 0, pending: 0 };
+  if (i % 113 === 13) return { ...z, ok: 0, pending: n, suspended: true, cause: 'fingerprint changed before apply (ODS/API upgraded) — target suspended' };
+  if (i % 41 === 5) return { ...z, ok: n - 1, failed: 1, cause: '400 Bad Request — courseLevelCharacteristic descriptor not found in this ODS' };
+  if (i % 53 === 7) return { ...z, ok: n - 1, conflict: 1, cause: '412 Precondition Failed — LEA SIS wrote after the manifest' };
+  if (i % 97 === 11) return { ...z, ok: n - 1, uncertain: 1, cause: 'worker lost after PUT; startup sweep marked in_flight → uncertain' };
+  return z;
+};
+const execRun = (r, m) => {
+  const ts = m.targets.map(i => targets.find(x => x.id === i)); r.records = opRecords(m); r.waiting = false;
+  if (S.scenario !== 'mn') { r.counts = sumCounts(r.records.map(x => ({ [x.state]: 1 }))); r.status = r.counts.failed || r.counts.skipped || r.counts.conflict || r.counts.uncertain ? 'partial' : 'success'; return; }
+  const { applyConcurrency: N, applyBreakerPct: X } = teamSettings();
+  const first = sumCounts(r.records.map(x => ({ [x.state]: 1 })));
+  r.perTarget = []; r.sample = fmtTarget(ts[0]); let failedT = 0, tripped = false;
+  ts.forEach((t, i) => {
+    if (tripped) { r.perTarget.push({ tid: t.id, ok: 0, failed: 0, skipped: 0, conflict: 0, uncertain: 0, pending: m.ops.length, cause: 'not started — circuit breaker' }); return; }
+    const o = i === 0 ? { tid: t.id, ...first, cause: r.records.find(x => x.err)?.err } : synthTarget(t, i, m.ops.length);
+    r.perTarget.push(o); if (o.failed) failedT++;
+    // Breaker evaluates once a full batch of N targets has finished.
+    if (i + 1 >= N && failedT / (i + 1) * 100 > X) tripped = true;
+  });
+  r.counts = sumCounts(r.perTarget);
+  r.status = tripped ? 'suspended' : r.counts.failed || r.counts.skipped || r.counts.conflict || r.counts.uncertain || r.counts.pending ? 'partial' : 'success';
+  r.suspendReason = tripped ? 'breaker' : r.perTarget.some(p => p.suspended) ? 'fingerprint' : null;
+};
+window.applyManifest = (id) => {
+  const m = manifests.find(x => x.id === id); const rid = Math.max(...runs.map(r => r.id)) + 1;
+  const r = { id: rid, manifestId: m.id, year: m.year, when: `${TODAY} now`, by: me().id, targets: m.targets.map(i => fmtTarget(targets.find(x => x.id === i))), status: 'running', counts: sumCounts([]), records: [] };
+  runs.unshift(r); m.status = 'done';
+  if (m.kind === 'in_year') { r.waiting = true; r.notBefore = teamSettings().quietWindow; toast(`Run #${rid} scheduled: waits for the next quiet window (${r.notBefore})`); go(`#/runs/${rid}`); return; }
+  execRun(r, m); toast(`Run #${rid} ${r.status}: ${r.counts.ok} ok · ${r.counts.failed} failed · ${r.counts.skipped} skipped · ${r.counts.conflict} conflict`); go(`#/runs/${rid}`);
+};
+window.openWindow = id => { const r = runs.find(x => x.id === id); r.when = `${TODAY} 01:00 (quiet window)`; execRun(r, manifests.find(m => m.id === r.manifestId)); toast(`Quiet window opened. Run #${id} ${r.status}.`); render(); };
+
+const remaining = r => {
+  const pend = r.status === 'suspended' && ['breaker', 'window'].includes(r.suspendReason);
+  if (!r.perTarget) return { ops: r.records.filter(x => ['failed','skipped','uncertain'].includes(x.state)).length, targets: 1 };
+  const hit = r.perTarget.filter(p => p.failed || p.skipped || p.uncertain || (p.pending && (pend || !p.suspended)) );
+  return { ops: hit.reduce((a, p) => a + p.failed + p.skipped + p.uncertain + (pend || !p.suspended ? p.pending : 0), 0), targets: hit.length };
+};
 screens.run = (id) => {
   const r = runs.find(x => x.id === +id); if (!r) return page({ title: 'Not found', body: '' });
-  const retriable = r.records.filter(x => ['failed','skipped','uncertain'].includes(x.state)).length;
-  return page({ title: `Run #${r.id}`, actions: [{ icon: 'bi-arrow-repeat', text: `Re-run ${retriable} remaining`, onclick: `rerun(${r.id})`, disabled: !can('publish') || !retriable, title: 'Same manifest; uncertain reconciled by natural key first' }], body: `
+  const rem = remaining(r); const big = !!r.perTarget;
+  const action = r.waiting ? [{ icon: 'bi-moon-stars', text: 'Simulate window opening', onclick: `openWindow(${r.id})`, disabled: !can('publish') }]
+    : [{ icon: 'bi-arrow-repeat', text: big ? `Re-run ${rem.ops} remaining on ${rem.targets} targets` : `Re-run ${rem.ops} remaining`, onclick: `rerun(${r.id})`, disabled: !can('publish') || !rem.ops, title: 'Same manifest; uncertain reconciled by natural key first' }];
+  const causes = {}; (r.perTarget || []).forEach(p => { if (p.cause && (p.failed || p.conflict || p.uncertain || p.pending)) causes[p.cause] = (causes[p.cause] || 0) + 1; });
+  const sev = p => (p.failed ? 8 : 0) + (p.conflict ? 4 : 0) + (p.uncertain ? 2 : 0) + (p.pending ? 1 : 0);
+  const tv = big ? pg('run-' + r.id, [...r.perTarget].sort((a, b) => sev(b) - sev(a))) : null;
+  const finished = big ? r.perTarget.filter(p => !p.pending).length : 0; const failedT = big ? r.perTarget.filter(p => p.failed).length : 0;
+  const kpi = (n, color, label) => `<div><div class="kpi" style="color:var(--${color})">${n.toLocaleString()}</div><div class="muted">${label}</div></div>`;
+  return page({ title: `Run #${r.id}`, actions: action, body: `
     <div class="attrs" style="margin-bottom:2.5rem">
-      <div class="field"><label class="view">Status</label>${T(r.status)}</div>
+      <div class="field"><label class="view">Status</label>${r.waiting ? T('scheduled', 'waiting for window') : T(r.status)}${r.suspendReason ? ' ' + T(r.suspendReason) : ''}</div>
       <div class="field"><label class="view">Manifest</label><a class="lnk" href="#/manifests/${r.manifestId}">#${r.manifestId}</a></div>
       <div class="field"><label class="view">Year set</label><a class="lnk" href="#/year/${r.year}">${r.year}</a></div>
-      <div class="field"><label class="view">Started</label>${r.when}</div>
+      <div class="field"><label class="view">Started</label>${r.waiting ? `not before ${r.notBefore}` : r.when}</div>
       <div class="field"><label class="view">Publisher</label>${r.by}</div>
-      <div class="field" style="grid-column:1/-1"><label class="view">Targets</label>${r.targets.join('<br/>')}</div>
+      <div class="field" style="grid-column:1/-1"><label class="view">Targets</label>${big ? `${r.targets.length} LEA targets · ${teamSettings().applyConcurrency} at a time · breaker at ${teamSettings().applyBreakerPct}% failed targets` : r.targets.join('<br/>')}</div>
     </div>
-    <div class="grid3" style="margin-bottom:1rem"><div><div class="kpi" style="color:var(--green-800)">${r.counts.ok}</div><div class="muted">ok</div></div><div><div class="kpi" style="color:var(--red-800)">${r.counts.failed}</div><div class="muted">failed (refused by ODS/API)</div></div><div><div class="kpi" style="color:var(--yellow-800)">${r.counts.skipped}</div><div class="muted">skipped (blocked by a failure)</div></div></div>
-    <div class="grid3" style="margin-bottom:2.5rem"><div><div class="kpi" style="color:var(--red-800)">${r.counts.conflict}</div><div class="muted">conflict (412 — needs new manifest)</div></div><div><div class="kpi" style="color:var(--purple-800)">${r.counts.uncertain}</div><div class="muted">uncertain (reconcile before retry)</div></div><div></div></div>
-    ${r.status !== 'success' ? `<div class="alert error" style="margin-bottom:1.5rem">${I('bi-x-circle-fill')}<div><b>No rollback.</b> The ODS/API is non-transactional; what succeeded stays applied. Re-run finishes <i>this</i> manifest's failed, skipped, and uncertain operations only. Conflicts need a new manifest.</div></div>` : ''}
-    ${section('Per-operation outcomes', r.records.length ? `<table class="sbaa"><thead><tr><th>Record</th><th>Op</th><th>State</th><th>Detail</th></tr></thead><tbody>${r.records.map(x => `<tr><td class="mono">${esc(x.key)}</td><td>${x.op}</td><td>${T(x.state)}</td><td class="${['failed','conflict'].includes(x.state)?'mono':'sm muted'}">${esc(x.err||'')}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">All operations succeeded.</span>')}` });
+    ${r.waiting ? `<div class="alert info" style="margin-bottom:1.5rem">${I('bi-moon-stars')}<div><b>Scheduled.</b> This in-year run waits for the next quiet window (${r.notBefore}). Targets unfinished when the window closes suspend; a re-run in the next window finishes them.</div></div>` : `
+    <div class="grid3" style="margin-bottom:1rem">${kpi(r.counts.ok, 'green-800', 'ok')}${kpi(r.counts.failed, 'red-800', 'failed (refused by ODS/API)')}${kpi(r.counts.skipped, 'yellow-800', 'skipped (blocked by a failure)')}</div>
+    <div class="grid3" style="margin-bottom:2.5rem">${kpi(r.counts.conflict, 'red-800', 'conflict (412 — needs new manifest)')}${kpi(r.counts.uncertain, 'purple-800', 'uncertain (reconcile before retry)')}${r.counts.pending ? kpi(r.counts.pending, 'gray-600', 'pending (not started)') : '<div></div>'}</div>
+    ${r.suspendReason === 'breaker' ? `<div class="alert error" style="margin-bottom:1.5rem">${I('bi-sign-stop-fill')}<div><b>Circuit breaker tripped.</b> ${failedT} of ${finished} finished targets failed (${(failedT / finished * 100).toFixed(1)}% &gt; ${teamSettings().applyBreakerPct}%). ${r.perTarget.filter(p => p.pending).length} targets never started. Fix the cause, then re-run: the same manifest, pending targets included.</div></div>`
+      : r.status !== 'success' ? `<div class="alert error" style="margin-bottom:1.5rem">${I('bi-x-circle-fill')}<div><b>No rollback.</b> The ODS/API is non-transactional; what succeeded stays applied. Re-run finishes <i>this</i> manifest's failed, skipped, and uncertain operations only. Conflicts need a new manifest.${r.suspendReason === 'fingerprint' ? ' Targets whose fingerprint changed are suspended; they need a new manifest.' : ''}</div></div>` : ''}
+    ${big && Object.keys(causes).length ? section('Triage by cause', Object.entries(causes).sort((a, b) => b[1] - a[1]).map(([c, n]) => `<div class="li"><span class="mono sm">${esc(c)}</span><b style="white-space:nowrap">${n} target${n > 1 ? 's' : ''}</b></div>`).join('')) : ''}
+    ${big ? section('By target (worst first)', `<table class="sbaa"><thead><tr><th style="min-width:12em">LEA</th><th>Target</th><th>ok</th><th>failed</th><th>skipped</th><th>conflict</th><th>uncertain</th><th>pending</th><th>Detail</th></tr></thead><tbody>${tv.rows.map(p => { const t = targets.find(x => x.id === p.tid); return `<tr><td>${leaCell(t)}</td><td class="mono sm">${t.tenant}</td><td>${p.ok}</td><td>${p.failed ? T('failed', p.failed) : 0}</td><td>${p.skipped}</td><td>${p.conflict ? T('conflict', p.conflict) : 0}</td><td>${p.uncertain ? T('uncertain', p.uncertain) : 0}</td><td>${p.pending}</td><td class="sm muted">${esc(p.cause || '')}</td></tr>`; }).join('')}</tbody></table>${tv.bar}`) : ''}
+    ${section(big ? `Per-operation outcomes · sample target ${r.sample}` : 'Per-operation outcomes', r.records.length ? `<table class="sbaa"><thead><tr><th>Record</th><th>Op</th><th>State</th><th>Detail</th></tr></thead><tbody>${r.records.map(x => `<tr><td class="mono">${esc(x.key)}</td><td>${x.op}</td><td>${T(x.state)}</td><td class="${['failed','conflict'].includes(x.state)?'mono':'sm muted'}">${esc(x.err||'')}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">All operations succeeded.</span>')}`}` });
 };
-window.rerun = id => { const r = runs.find(x => x.id === id); r.records.forEach(x => { if (x.state === 'uncertain') { x.state = 'ok'; x.err = 'reconciled: GET by natural key shows intended state — no retry needed'; } }); r.counts.uncertain = 0; r.counts.ok = r.records.filter(x => x.state === 'ok').length; toast('Re-run: uncertain reconciled by natural key; failed/skipped retried against the same manifest (409 persists until data changes)'); render(); };
-screens.runs = () => page({ title: 'Runs', body: `${tableSearch()}<table class="sbaa"><thead><tr><th>#</th><th>Manifest</th><th>Year</th><th>Started</th><th>Publisher</th><th>Targets</th><th>ok / failed / skipped / conflict / uncertain</th><th>Status</th><th></th></tr></thead><tbody>
-  ${runs.map(r => `<tr class="clickable" onclick="go('#/runs/${r.id}')"><td>${r.id}</td><td>#${r.manifestId}</td><td>${r.year}</td><td>${r.when}</td><td>${r.by}</td><td class="sm">${r.targets.join('<br/>')}</td><td class="mono">${r.counts.ok} / ${r.counts.failed} / ${r.counts.skipped} / ${r.counts.conflict} / ${r.counts.uncertain}</td><td>${T(r.status)}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>` });
+window.rerun = id => {
+  const r = runs.find(x => x.id === id);
+  r.records.forEach(x => { if (x.state === 'uncertain') { x.state = 'ok'; x.err = 'reconciled: GET by natural key shows intended state — no retry needed'; } });
+  if (!r.perTarget) { r.counts.uncertain = 0; r.counts.ok = r.records.filter(x => x.state === 'ok').length; toast('Re-run: uncertain reconciled by natural key; failed/skipped retried against the same manifest (409 persists until data changes)'); render(); return; }
+  const pend = r.status === 'suspended' && ['breaker', 'window'].includes(r.suspendReason); const fixed = r.suspendReason === 'breaker';
+  r.perTarget.forEach(p => {
+    p.ok += p.uncertain; p.uncertain = 0;
+    if (pend && p.pending) { p.ok += p.pending; p.pending = 0; p.cause = null; }
+    if (fixed && p.failed) { p.ok += p.failed; p.failed = 0; p.cause = null; }
+    if (!p.failed && !p.conflict && !p.uncertain && !p.pending) p.cause = null;
+  });
+  r.counts = sumCounts(r.perTarget);
+  r.status = r.counts.failed || r.counts.skipped || r.counts.conflict || r.counts.uncertain || r.counts.pending ? 'partial' : 'success';
+  r.suspendReason = r.perTarget.some(p => p.suspended && p.pending) ? 'fingerprint' : null;
+  toast(fixed ? 'Re-run on the same manifest: the missing descriptor was applied first, so the failed targets now succeed; pending targets ran; conflicts still need a new manifest.' : 'Re-run on the same manifest: uncertain reconciled by natural key; failed retried (still refused until data changes); conflicts need a new manifest.');
+  render();
+};
+screens.runs = () => { const v = pg('runs', runs); return page({ title: 'Runs', body: `${tableSearch()}<table class="sbaa"><thead><tr><th>#</th><th>Manifest</th><th>Year</th><th>Started</th><th>Publisher</th><th>Targets</th><th>ok / failed / skipped / conflict / uncertain</th><th>Status</th><th></th></tr></thead><tbody>
+  ${v.rows.map(r => `<tr class="clickable" onclick="go('#/runs/${r.id}')"><td>${r.id}</td><td>#${r.manifestId}</td><td>${r.year}</td><td>${r.when}</td><td>${r.by}</td><td class="sm">${targetsCell(r.targets)}</td><td class="mono">${r.counts.ok} / ${r.counts.failed} / ${r.counts.skipped} / ${r.counts.conflict} / ${r.counts.uncertain}${r.counts.pending ? ` · ${r.counts.pending} pending` : ''}</td><td>${r.waiting ? T('scheduled', 'waiting for window') : T(r.status)}${r.suspendReason ? ' ' + T(r.suspendReason) : ''}</td><td><button class="btn table-row row-hover">${I('bi-eye')}</button></td></tr>`).join('')}</tbody></table>${v.bar}` }); };
 
-screens.drift = () => page({ title: `Drift &nbsp;${T('stretch','stretch')}`, actions: [{ icon: 'bi-arrow-repeat', text: 'Scan now', onclick: `toast('Read-only manifest build queued for every compatible target')`, disabled: !can('configure') }], body: `
-  <div class="alert info" style="margin-bottom:1.5rem">${I('bi-info-circle-fill')}<div>Opt-in scheduled scan that reuses the manifest build in read-only mode — it never approves or applies. Owned-path drift → fix via a new manifest or adopt into a change request; external drift is visibility only.</div></div>
-  <label class="chk" style="margin-bottom:1.5rem"><input type="checkbox" checked ${can('configure') ? '' : 'disabled'} onchange="toast('Scan schedule toggled (per partner, off-peak)')"/> Nightly scan enabled for ${partner.team}</label>
-  ${drift.map(d => section(`${d.target} <span class="sm muted" style="font-weight:400">· scanned ${d.scanned} · ${d.owned} owned-path, ${d.external} external</span>`, d.rows.length ? `<table class="sbaa"><thead><tr><th>Record · path</th><th>MDM</th><th>ODS</th><th>Kind</th><th></th></tr></thead><tbody>${d.rows.map(r => `<tr class="${r.kind==='owned'?'diff-chg':'diff-ext'}"><td class="mono">${esc(r.key)} · ${esc(r.field)}</td><td>${esc(r.mdm)}</td><td>${esc(r.ods)}</td><td>${r.kind === 'owned' ? T('owned') : T('','external')}</td><td style="white-space:nowrap">${r.kind === 'owned' ? `<button class="btn table-row" onclick="go('#/push')">${I('bi-upload')} new manifest</button><button class="btn table-row" onclick="toast('Adopt → change request item with base revision')">${I('bi-box-arrow-in-down')} adopt</button>` : '<span class="sm muted">visibility only</span>'}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">Only external drift; nothing MDM-owned differs.</span>')).join('')}` });
+const driftTable = d => d.rows.length ? `<table class="sbaa"><thead><tr><th>Record · path</th><th>MDM</th><th>ODS</th><th>Kind</th><th></th></tr></thead><tbody>${d.rows.map(r => `<tr class="${r.kind==='owned'?'diff-chg':'diff-ext'}"><td class="mono">${esc(r.key)} · ${esc(r.field)}</td><td>${esc(r.mdm)}</td><td>${esc(r.ods)}</td><td>${r.kind === 'owned' ? T('owned') : T('','external')}</td><td style="white-space:nowrap">${r.kind === 'owned' ? `<button class="btn table-row" onclick="go('#/push')">${I('bi-upload')} new manifest</button><button class="btn table-row" onclick="toast('Adopt → change request item with base revision')">${I('bi-box-arrow-in-down')} adopt</button>` : '<span class="sm muted">visibility only</span>'}</td></tr>`).join('')}</tbody></table>` : '<span class="muted">Only external drift; nothing MDM-owned differs.</span>';
+screens.drift = () => {
+  const mn = S.scenario === 'mn';
+  const scan = mn ? `toast('On-demand read-only manifest build queued for every compatible LEA target, ${teamSettings().applyConcurrency} at a time')` : `toast('Read-only manifest build queued for every compatible target')`;
+  const head = mn
+    ? `<div class="alert info" style="margin-bottom:1.5rem">${I('bi-info-circle-fill')}<div>Statewide teams leave the schedule off: a nightly scan of every LEA ODS costs read load. A publisher starts an on-demand scan, for example before an in-year adjustment. The scan reuses the manifest build in read-only mode and runs under the apply concurrency cap. It never approves or applies.</div></div>
+       <label class="chk" style="margin-bottom:1.5rem"><input type="checkbox" ${can('configure') ? '' : 'disabled'} onchange="toast('Scheduled scan toggled — statewide default is off')"/> Scheduled scan (off by default for statewide teams)</label>`
+    : `<div class="alert info" style="margin-bottom:1.5rem">${I('bi-info-circle-fill')}<div>Opt-in scheduled scan that reuses the manifest build in read-only mode — it never approves or applies. Owned-path drift → fix via a new manifest or adopt into a change request; external drift is visibility only.</div></div>
+       <label class="chk" style="margin-bottom:1.5rem"><input type="checkbox" checked ${can('configure') ? '' : 'disabled'} onchange="toast('Scan schedule toggled (per partner, off-peak)')"/> Nightly scan enabled for ${partner.team}</label>`;
+  let body;
+  if (mn) {
+    const owned = drift.filter(d => d.owned); const extOnly = drift.length - owned.length; const v = pg('drift', owned, 10);
+    body = `<div class="grid3" style="margin-bottom:1.5rem"><div><div class="kpi">${drift.meta.scanned}</div><div class="muted">LEA targets scanned · ${drift.meta.when}</div></div><div><div class="kpi" style="color:var(--green-800)">${drift.meta.scanned - drift.length}</div><div class="muted">clean</div></div><div><div class="kpi" style="color:var(--yellow-800)">${owned.length}</div><div class="muted">owned-path drift · ${extOnly} more external-only</div></div></div>
+      ${v.rows.map(d => section(`${esc(d.lea.name)} <span class="sm muted" style="font-weight:400">· ${d.target} · ${d.owned} owned-path, ${d.external} external</span>`, driftTable(d))).join('')}${v.bar}`;
+  } else body = drift.map(d => section(`${d.target} <span class="sm muted" style="font-weight:400">· scanned ${d.scanned} · ${d.owned} owned-path, ${d.external} external</span>`, driftTable(d))).join('');
+  return page({ title: `Drift &nbsp;${T('stretch','stretch')}`, actions: [{ icon: 'bi-arrow-repeat', text: 'Scan now', onclick: scan, disabled: !can('publish') }], body: head + body });
+};
 
 screens.sources = () => page({ title: 'Upstream sources', actions: [{ icon: 'bi-plus-lg', text: 'Create', onclick: `toast('HTTP API only: origin must be on the team allow-list; secret must be an MDM-owned Secrets Manager entry tagged with this team')`, disabled: !can('configure') }], body: `
   <div class="alert info" style="margin-bottom:1.5rem">${I('bi-info-circle-fill')}<div>Read-only HTTP-API connectors to a partner's system of record. Pulls land as change requests; connectors never write back. Destinations are allow-listed HTTPS origins; private/link-local addresses and cross-origin redirects are refused; secrets are team-bound. Direct database sources are deferred from v1.</div></div>
   <table class="sbaa"><thead><tr><th>Source</th><th>Origin (allow-listed)</th><th>Auth</th><th>Secret ref</th><th>Mapping</th><th>Last pull</th><th>Status</th><th></th></tr></thead><tbody>
   ${sources.map((s,i) => `<tr><td>${I('bi-plug')} &nbsp;${esc(s.name)}</td><td class="mono">${s.origin}</td><td>${s.auth}</td><td class="mono">${s.secret}</td><td class="sm">${esc(s.mapping)}</td><td>${s.last}</td><td>${T(s.status)}</td><td style="white-space:nowrap"><button class="btn table-row" ${can('edit') ? '' : 'disabled'} onclick="pullSource(${i})">${I('bi-download')} Pull now</button><button class="btn table-row" ${can('configure') ? '' : 'disabled'} onclick="toast('Edit mapping: endpoint + JSON paths → Ed-Fi write shape, incl. nested objects/arrays')">${I('bi-pencil')}</button></td></tr>`).join('')}</tbody></table>` });
-window.pullSource = i => { const d = ensureDraft(); d.title = `Pull from ${sources[i].name}`; d.contributors = [...new Set([...d.contributors, 'svc-pipeline'])]; d.items.push({ op: 'update', ep: 'schools', key: 'School#255901104', base: 7, before: { shortNameOfInstitution: 'WLM' }, after: { shortNameOfInstitution: 'WLMS' } }); toast(`Pull complete (bounded response, 2 rows) → draft #${d.id}`); go(`#/cr/${d.id}`); };
+window.pullSource = i => { const d = ensureDraft(); d.title = `Pull from ${sources[i].name}`; d.contributors = [...new Set([...d.contributors, 'svc-pipeline'])]; d.items.push({ ...sources[i].sample }); toast(`Pull complete (bounded response, 2 rows) → draft #${d.id}`); go(`#/cr/${d.id}`); };
 
 screens.settings = () => page({ title: 'Settings · managed scopes', actions: [{ icon: 'bi-plus-lg', text: 'Add scope', onclick: `toast('Scope kinds: descriptor namespace prefix · EdOrg subtree · exact EdOrg (edorg) · all')`, disabled: !can('configure') }], body: `
   ${!can('configure') ? noPriv('configure') : ''}
-  ${section('Partner namespaces (set on the MDM vendor in SBAA)', `<div class="row wrap">${['uri://ea.startingblocks.org','uri://lakeside.org'].map(n => `<span class="tag">${n}</span>`).join('')}<button class="btn sm outline" ${can('configure')?'':'disabled'} onclick="toast('PUT /api/teams/:teamId/mdm/namespaces → vendor namespacePrefixes updated')">${I('bi-pencil')} Edit</button></div><div class="sm muted" style="margin-top:.5rem">Descriptors in <span class="mono">uri://ed-fi.org</span> and other vendors' namespaces are imported read-only. Ed-Fi namespace authorization is separate from resource CRUD.</div>`)}
+  ${section('Apply and quiet windows (team settings)', `<div class="attrs"><div class="field"><label class="view">applyConcurrency</label><span class="mono">${teamSettings().applyConcurrency}</span> targets at once</div><div class="field"><label class="view">applyBreakerPct</label><span class="mono">${teamSettings().applyBreakerPct}%</span> failed of finished targets suspends the run</div><div class="field"><label class="view">Quiet window</label>${teamSettings().quietWindow || '<span class="muted">none</span>'}</div>${yearSets.filter(y => y.collectionOpens).map(y => `<div class="field"><label class="view">collectionOpensOn · ${y.year}</label>${y.collectionOpens} ${kindOf(y.year) === 'in_year' ? T('in_year', 'in-year') : T('setup', 'setup')}</div>`).join('')}</div><div class="sm muted" style="margin-top:.5rem">The breaker evaluates once ${teamSettings().applyConcurrency} targets have finished. After a year set's collection opens, its manifests refuse deletes, need a second approval, and run only in the quiet window. Starting values; tune against real ODS load.</div><div style="margin-top:.75rem"><button class="btn sm outline" ${can('configure')?'':'disabled'} onclick="toast('PUT /teams/:teamId/mdm-settings')">${I('bi-pencil')} Edit</button></div>`)}
+  ${section('Partner namespaces (set on the MDM vendor in SBAA)', `<div class="row wrap">${[...new Set(Object.values(scopes).flat().filter(sc => sc.kind === 'namespace').map(sc => sc.value))].map(n => `<span class="tag">${n}</span>`).join('')}<button class="btn sm outline" ${can('configure')?'':'disabled'} onclick="toast('PUT /api/teams/:teamId/mdm/namespaces → vendor namespacePrefixes updated')">${I('bi-pencil')} Edit</button></div><div class="sm muted" style="margin-top:.5rem">Descriptors in <span class="mono">uri://ed-fi.org</span>, LEA namespaces, and other vendors' namespaces are imported read-only. Ed-Fi namespace authorization is separate from resource CRUD.</div>`)}
   ${section('Managed scopes by year set', `<table class="sbaa"><thead><tr><th>Year set</th><th>Kind</th><th>Scope</th><th></th></tr></thead><tbody>${Object.entries(scopes).sort((a,b)=>b[0]-a[0]).flatMap(([y, list]) => list.map(sc => `<tr><td>${y}</td><td>${T('', sc.kind)}</td><td class="mono">${sc.res ? sc.res + ' · ' : ''}${sc.value}</td><td><button class="btn table-row row-hover" ${can('configure')?'':'disabled'}>${I('bi-trash')}</button></td></tr>`)).join('')}</tbody></table><div class="sm muted" style="margin-top:.5rem">MDM may create, update, or tombstone records only inside a scope. Set difference between a target and MDM never produces a delete.</div>`)}
   ${section('Field ownership policy (v1 global defaults)', `<table class="sbaa"><thead><tr><th>Family</th><th>Owned paths</th><th>Create</th><th>Update</th></tr></thead><tbody>${families.map(f => `<tr><td>${f.label}</td><td>${f.owned === 'all' ? 'all' : '<span class="mono">nameOfInstitution, shortNameOfInstitution, parent refs, categories</span>'}</td><td>full stored payload</td><td>${f.owned === 'all' ? 'full replace' : 'owned paths merged into target representation'}</td></tr>`).join('')}</tbody></table>`)}` });
 
@@ -574,7 +820,7 @@ function crumbs() {
   if (h[0] === 'drift') c.push([location.hash, 'Drift']);
   if (h[0] === 'sources') c.push([location.hash, 'Upstream sources']);
   if (h[0] === 'settings') c.push([location.hash, 'Settings']);
-  if (h[0] === 'rollforward') { yr(2026); c.push([location.hash, 'Roll forward']); }
+  if (h[0] === 'rollforward') { yr(yearSets.find(y => ['current'].includes(y.status)).year); c.push([location.hash, 'Roll forward']); }
   if (h[0] === 'account') c.push([location.hash, 'Account']);
   return `<div class="crumbs">${c.map(([href, label], i) => `${i ? '<span class="sep">/</span>' : ''}<a href="${href}">${label}</a>`).join('')}</div>`;
 }
@@ -589,7 +835,7 @@ const navTree = (y, depth = 0) => {
 };
 const shell = (content) => `<div class="layout">
       <header class="appbar"><div class="left"><a href="#/"><img alt="logo" src="logo-sb.svg"/></a><span class="team">${partner.team}</span></div>
-        <div class="right"><span class="sm muted">Acting as</span><select class="userpick" onchange="S.userIx=+this.value;render()">${users.map((u,i) => `<option value="${i}" ${i===S.userIx?'selected':''}>${u.id} · ${u.role}</option>`).join('')}</select><a class="iconbtn" title="Help guide" href="https://docs.startingblocks.org/" target="_blank" rel="noopener noreferrer">${I('bi-question-lg')}</a><a class="iconbtn" style="width:auto;gap:0;padding:0" title="Account" href="#/account"><span class="avatar">${me().name.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}</span>${I('bi-caret-down', 'muted')}</a></div></header>
+        <div class="right"><span class="sm muted">Scenario</span><select class="userpick" onchange="setScenario(this.value)"><option value="pilot" ${S.scenario==='pilot'?'selected':''}>Pilot · 1 tenant</option><option value="mn" ${S.scenario==='mn'?'selected':''}>Minnesota · 512 LEAs</option></select><span class="sm muted">Acting as</span><select class="userpick" onchange="S.userIx=+this.value;render()">${users.map((u,i) => `<option value="${i}" ${i===S.userIx?'selected':''}>${u.id} · ${u.role}</option>`).join('')}</select><a class="iconbtn" title="Help guide" href="https://docs.startingblocks.org/" target="_blank" rel="noopener noreferrer">${I('bi-question-lg')}</a><a class="iconbtn" style="width:auto;gap:0;padding:0" title="Account" href="#/account"><span class="avatar">${me().name.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}</span>${I('bi-caret-down', 'muted')}</a></div></header>
       <main class="std">
         <nav class="sbnav"><div class="resize"></div>
           <div class="teamsel"><div class="input" title="Select a team (or global) context"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${partner.team}</span>${I('bi-chevron-down','muted')}</div></div>

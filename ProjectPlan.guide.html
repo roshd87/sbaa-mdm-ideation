@@ -73,7 +73,7 @@
   <div class="kicker" style="margin-top:2em">Project plan walkthrough</div>
   <h1>Master Data Management<br/>for StartingBlocks</h1>
   <p class="sub">A partner-level MDM that manages multi-year Ed-Fi master data and pushes it — through the ODS/API only — into tagged StartingBlocks environments.</p>
-  <p class="muted sm">Sources: <span class="mono">ProjectScope.md</span> · <span class="mono">ProjectPlan.md</span> (five stages, one page) · <span class="mono">ImplementationPlan.md</span> (76 steps) · <span class="mono">mockup/mdm-prototype.html</span> (clickable UI)</p>
+  <p class="muted sm">Sources: <span class="mono">ProjectScope.md</span> · <span class="mono">ProjectPlan.md</span> (five stages, one page) · <span class="mono">ImplementationPlan.md</span> (77 steps) · <span class="mono">mockup/mdm-prototype.html</span> (clickable UI)</p>
   <p class="muted sm">Navigate with → ← keys · F fullscreen · P print all</p>
 </section>
 
@@ -188,6 +188,7 @@
       <dt>SBAA API</dt><dd><ul><li>Extend the claimset to the EdOrg resources. Re-ensure each application.</li></ul></dd>
       <dt>mdm-api</dt><dd><ul><li>Add the EdOrg registry entries. Give each subtype its own natural key: <span class="mono">schoolId</span>, <span class="mono">localEducationAgencyId</span>, <span class="mono">educationServiceCenterId</span>…</li><li>Build the EdOrg tree read-model. Add the mixed ownership lists. Show non-owned fields for visibility only.</li><li>Add record-level reference edges. Skip dependents of failures. Block a parent delete when a child delete fails.</li><li>Create = full stored payload. Update = owned paths replaced in the target's current representation.</li></ul></dd>
       <dt>mdm-fe</dt><dd><ul><li>Build the EdOrg tree editor. Mark owned and non-owned fields in the manifest preview.</li></ul></dd>
+      <dt>In-year gate</dt><dd><ul><li>Add the collection-opens date and quiet windows. In-year manifests drop deletes and need a second approval.</li></ul></dd>
       <dt>Docs</dt><dd><ul><li>Write the claimset hard-enforcement guidance for fully-owned resources only.</li></ul></dd>
     </dl>
     <div>
@@ -235,7 +236,7 @@
   <header><h1>Stage 4 — Stretch: drift scanning</h1><h2>the manifest build, read-only, on a timer · <span class="tag">S</span> · <span class="tag purple">any time after Stage 1</span></h2></header>
   <div class="cols cols2">
     <dl class="ws">
-      <dt>mdm-api</dt><dd><ul><li>Add a scheduled per-partner scan that reuses the manifest build in read-only mode. Persist drift reports.</li><li>Add per-partner settings: opt-in, schedule, scope. Add an optional approver notification.</li></ul></dd>
+      <dt>mdm-api</dt><dd><ul><li>Add a scheduled per-partner scan that reuses the manifest build in read-only mode. Persist drift reports.</li><li>Add per-partner settings: opt-in, schedule, scope. Add an optional approver notification.</li><li>Add an on-demand scan for statewide teams. It uses the same concurrency cap as apply.</li></ul></dd>
       <dt>mdm-fe</dt><dd><ul><li>Flag drifted records. Build the drift report screen.</li></ul></dd>
       <dt>Docs</dt><dd><ul><li>Write the off-peak schedule guidance. Measure the ODS read load.</li></ul></dd>
     </dl>
@@ -246,6 +247,40 @@
         <li>It reuses Stage 1's manifest builder. It adds a schedule and a report table only.</li>
         <li>Each scan reads every ODS once. Keep it opt-in and off-peak.</li>
       </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 10 Statewide -->
+<section class="slide">
+  <header><h1>Statewide deployment</h1><h2>one state team · 500+ LEAs · one ODS per LEA per year</h2></header>
+  <div class="cols cols2">
+    <div>
+      <h3 style="margin-top:0">Shape</h3>
+      <ul class="sm">
+        <li>Each LEA is its own Ed-Fi tenant. Charters are LEAs.</li>
+        <li>One state team owns every LEA target. State staff edit, approve, and publish.</li>
+        <li>LEA-local descriptors and courses import read-only. MDM never writes them.</li>
+        <li>One manifest covers every compatible LEA. Region and LEA type appear in rollups only.</li>
+      </ul>
+      <h3>Apply at scale</h3>
+      <ul class="sm">
+        <li>Apply writes to a capped number of LEAs at once.</li>
+        <li>A circuit breaker pauses the run when too many LEAs fail. A publisher resumes it as a re-run.</li>
+        <li>A busy LEA is blocked by itself. The other LEAs proceed.</li>
+        <li>Drift scans are off by default. A publisher runs one on demand.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Two workflows per school year</h3>
+      <table class="sm">
+        <tr><th></th><th>Pre-collection setup</th><th>In-year adjustment</th></tr>
+        <tr><td><b>When</b></td><td>Before LEAs send data</td><td>After collection opens</td></tr>
+        <tr><td><b>Deletes</b></td><td>Allowed when approved</td><td><span class="tag red">never</span></td></tr>
+        <tr><td><b>Approval</b></td><td>Publisher</td><td>Publisher plus a second person</td></tr>
+        <tr><td><b>When it runs</b></td><td>Right away</td><td>Next scheduled quiet window</td></tr>
+      </table>
+      <p class="prose sm" style="margin-top:.9em">Before collection opens, no student record points at a descriptor or a course, so the state can set up freely. After it opens, live data depends on those records. In-year changes therefore drop deletes, add a second reviewer, and wait for a window when the district systems are quiet.</p>
     </div>
   </div>
 </section>
@@ -291,6 +326,7 @@
     <tr><td><b>Cross-version mappings are hand-maintained.</b></td><td>Write them only for the version pairs StartingBlocks runs. Apply them only at roll-forward.</td></tr>
     <tr><td><b>Writer quiescence is an agreement, not a guarantee.</b></td><td>Count-drift abort is the safety net. Revisit snapshot reads with the first external partner.</td></tr>
     <tr><td><b>The first external partner may run a different release or profiles.</b></td><td>The fingerprint check blocks, never warns.</td></tr>
+    <tr><td><b>A statewide apply reaches 500+ ODSs.</b></td><td>Cap concurrent LEAs. Pause the run on a high failure rate. Tune both against real load first.</td></tr>
     <tr><td><b>Claimsets cannot lock single fields.</b></td><td>Document the limit. Use the ownership merge for EdOrgs.</td></tr>
   </table>
 </section>
@@ -329,6 +365,7 @@
       <div class="card contract" style="margin-bottom:.7em"><span class="check">✓</span><b>Cross-version proof:</b> EA-hosted 6.x sandbox seeded from fixtures.</div>
       <div class="card contract" style="margin-bottom:.7em"><span class="check">✓</span><b>Bulk reads:</b> writer-quiescence window; count drift aborts the read.</div>
       <div class="card contract" style="margin-bottom:.7em"><span class="check">✓</span><b>Upstream sources:</b> HTTP API only in v1.</div>
+      <div class="card contract" style="margin-bottom:.7em"><span class="check">✓</span><b>Statewide:</b> one state team, one manifest across every LEA, capped and paused on failures; in-year changes wait for a quiet window.</div>
       <div class="card contract"><span class="check">✓</span><b>UI shell:</b> SBAA chrome, exactly, with a workflow inbox as Home. See <span class="mono">mockup/mdm-prototype.html</span>.</div>
     </div>
     <div>
@@ -340,7 +377,7 @@
         <li>Hold the Stage 1 kickoff when Stage 0 exits.</li>
       </ol>
       <h3>Read more</h3>
-      <p class="sm"><span class="mono">ProjectScope.md</span> — every decision with its rationale.<br/><span class="mono">ProjectPlan.md</span> — one page, by stage.<br/><span class="mono">ImplementationPlan.md</span> — 76 steps against the repo, with checks.</p>
+      <p class="sm"><span class="mono">ProjectScope.md</span> — every decision with its rationale.<br/><span class="mono">ProjectPlan.md</span> — one page, by stage.<br/><span class="mono">ImplementationPlan.md</span> — 77 steps against the repo, with checks.</p>
     </div>
   </div>
 </section>
