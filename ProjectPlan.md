@@ -14,7 +14,7 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 | 3 Remaining + years | All eight families are pushable. One year rolls from 6.x/DS4 to 7.x/DS5. File intake and upstream intake land as change requests. | L |
 | 4 Stretch: drift | The pilot receives a scheduled drift report. The UI flags the drifted records. | S |
 
-**Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; Minnesota joins at Stage 2 (Q15, Q27). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a). Statewide: EA-owned uniform deployment; MDM is the only master-data writer; one capped manifest per change; in-year changes need a window and a second approval (Q27).
+**Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; Minnesota joins at Stage 2 (Q15, Q27). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a). Statewide: EA-owned uniform deployment; MDM is sole writer; in-year changes need a window and a second approval (Q27).
 
 ## Stage 0 — Foundations
 
@@ -26,7 +26,7 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 
 ## Stage 1 — Descriptors slice
 
-- **mdm-api:** Add year sets. Fingerprint each target; block incompatible targets. Add the import job with count-drift detection and write-shape normalisation; write the result as a change request inside managed scope. Add the change-request lifecycle with base revisions, frozen batches, CAS approval, and contributor-based separation of duties (Q3, Q8, Q9, Q13, Q13a, Q20, Q21, Q22, Q24).
+- **mdm-api:** Add year sets; start creation with the namespace step (Q28). Fingerprint each target; block incompatible targets. Add the import job with count-drift detection and write-shape normalisation; write the result as a change request inside managed scope. Add the change-request lifecycle with base revisions, frozen batches, CAS approval, and contributor-based separation of duties (Q3, Q8, Q9, Q13, Q13a, Q20, Q21, Q22, Q24).
 - **mdm-api:** Build immutable manifests: create/update by owned paths, deletes from approved tombstones only, observed ETags, target fingerprints. Apply one manifest at a time with `If-Match`; suspend a target whose fingerprint changed; order by `/metadata/data/v3/dependencies`. Cap concurrent targets; suspend the run when the circuit breaker trips (Q5, Q7, Q7a, Q21, Q27).
 - **mdm-api:** Record `ok | failed | skipped | conflict | uncertain` per operation. Mark the run `partial` or `suspended`. Re-run only failed, skipped, and `uncertain` operations of the same manifest, plus `pending` after a breaker suspension; reconcile `uncertain` by natural key first. Make every descriptor path MDM-owned (Q12, Q14, Q25, Q27).
 - **mdm-fe:** Build the inbox Home, the Descriptor editor, the review screen with one batch diff, the target confirmation, the manifest preview, and the run results (Q3, Q5, Q7, Q12, Q13, Q17).

@@ -8,7 +8,7 @@ Planning record for adding Master Data Management (MDM) to the StartingBlocks Ad
 
 | File | Role | Edit when |
 |---|---|---|
-| `ProjectScope.md` | 27 numbered decisions (Q1–Q27, plus Pilot and Inventory), each with rationale; §4 In Scope, §5 Out, §6 Risks, §7 Future | a decision changes or a new one is made |
+| `ProjectScope.md` | 28 numbered decisions (Q1–Q28, plus Pilot and Inventory), each with rationale; §4 In Scope, §5 Out, §6 Risks, §7 Future | a decision changes or a new one is made |
 | `ProjectPlan.md` | One page, five stages, exit criteria, work by workstream, risks | stage content or sequencing changes |
 | `ImplementationPlan.md` | 77 ordered steps against the real SBAA monorepo, each sub-stage ends in a check; release order; seams for future standalone mode | mechanics, names, tables, endpoints change |
 | `EngineeringBrief.md` | Concise engineer-facing summary of scope + plans; no new decisions | any decision, table, endpoint, or stage changes |
@@ -29,7 +29,7 @@ Rules:
 - One term per concept, always the same term (see glossary). Never a synonym for variety.
 - Technical names exact and verbatim in backticks: table names, endpoints, roles, Ed-Fi resource names, HTTP headers.
 - Lists over paragraphs. Tables for anything with more than two columns of fact.
-- Every work item in `ProjectPlan.md` and `ImplementationPlan.md` ends with its decision reference `(Qn, …)`. Only Q1–Q27 exist.
+- Every work item in `ProjectPlan.md` and `ImplementationPlan.md` ends with its decision reference `(Qn, …)`. Only Q1–Q28 exist.
 
 Where narrative prose is allowed: the ✎ Summary in `ProjectPlan.md`, the *Rationale* lines in `ProjectScope.md`, italic `.prose` blocks in the guide. About 20% of the plan by volume, no more.
 
@@ -49,13 +49,15 @@ Audience-facing HTML (`ProjectPlan.guide.html`): **no** Q-numbers, revision mark
 - **roles** — four single SBAA team roles: `mdm-editor`, `mdm-approver`, `mdm-publisher`, `mdm-admin`. Machine identities never approve.
 - **upstream source** — HTTP-API only in v1. **drift scan** — the manifest build, read-only, on a schedule (stretch).
 
-## Decision state (closed 2026-10-06; Q26 added 2026-10-07; Q27 added 2026-11-04)
+## Decision state (closed 2026-10-06; Q26 added 2026-10-07; Q27–Q28 added 2026-11-04)
 
 Pilot: EA's internal StartingBlocks tenant, ODS/API 7.3 / Data Standard 5.2, TPDM installed, MDM application unprofiled, current school year; Minnesota (statewide, Q27) joins at Stage 2. DS4 proof: EA-hosted 6.x sandbox seeded from fixtures. Bulk reads in a writer-quiescence window; `Total-Count` drift aborts. Upstream: HTTP API only. UI: SBAA chrome exactly, inbox Home. Four contracts gate Stage 0: identity endpoint in SBAA, credential custody in SBAA, managed scope + tombstone-only deletes, immutable manifest + conditional writes. Full detail: `ProjectScope.md` Q18–Q25.
 
 Courses (Q26): opt-in per year set via a `courses` managed scope of kind `edorg`. A state catalog is MDM-owned; locally defined courses import read-only; non-state deployments leave the family off. `courseOfferings`, `sections`, `courseTranscripts` are out.
 
 Statewide (Q27): reference shape is an SEA with 500+ LEAs, one Ed-Fi tenant per LEA, one ODS per LEA per year. EA owns the deployment; every LEA ODS has the same API, DS, and extensions. MDM is the only master-data writer (Q14 claimset lock); no LEA-local descriptors or courses; `ownershipProfile = sole-writer` owns every path. Statewide ops: manifest operations as `mdm_push_manifest_operation` rows with shared `mdm_push_payload`; batch `ensure` + readiness block; provisioning tags ODSs and MDM lists untagged ones; MDM pushes the SEA EdOrg before courses. One state team; state staff only. `EA_Tenant` identifies the LEA; no new tags. One manifest, no ceiling. Apply runs under `applyConcurrency` with a circuit breaker at `applyBreakerPct`; re-run after a breaker suspension includes `pending`. Pre-collection setup vs in-year adjustment (after `collectionOpensOn`): in-year refuses deletes, needs a second approval by someone other than the creator, and runs in a quiet window. Drift is on demand.
+
+Namespaces (Q28): descriptor namespaces belong to the year set and are entered first when a year set is created or rolled forward. State teams (`partnerKind = state`) use state `.gov` URIs only (`uri://<statename>.gov`, `uri://education.mn.gov`).
 
 Do not reopen closed decisions in passing. If a change is needed, add a dated decision to `ProjectScope.md`, then propagate to plan → implementation → guide → mockup, in that order.
 

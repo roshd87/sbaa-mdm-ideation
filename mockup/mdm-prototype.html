@@ -291,7 +291,7 @@ sources[1].sample = { op: 'update', ep: 'schools', key: 'School#255901104', base
 /* ======================= scenarios (Q27) ======================= */
 // Pilot = the data above. Minnesota = one state team, 512 LEAs, one Ed-Fi tenant per LEA, one ODS per LEA per year.
 const PILOT = { yearSets, scopes, counts, descriptors, changeRequests, manifests, runs, drift, sources, push: { year: 2026, env: 'dev' },
-  settings: { applyConcurrency: 4, applyBreakerPct: 50, quietWindow: null } };
+  settings: { applyConcurrency: 4, applyBreakerPct: 50, quietWindow: null, partnerKind: 'other' } };
 
 const MN = (() => {
   const regions = ['Metro', 'Northeast', 'Northwest', 'West Central', 'Central', 'Southwest', 'South Central', 'Southeast'];
@@ -308,8 +308,8 @@ const MN = (() => {
 
   const ns = 'uri://education.mn.gov';
   const yearSets = [
-    { year: 2027, ds: 'DS 5.2', api: 'ODS-API 7.3 + TPDM', status: 'active', revision: 2290, keySchema: 'ds5-v1', collectionOpens: '2027-10-01' },
     { year: 2026, ds: 'DS 5.2', api: 'ODS-API 7.3 + TPDM', status: 'current', revision: 2311, keySchema: 'ds5-v1', collectionOpens: '2026-10-01' },
+    { year: 2027, ds: 'DS 5.2', api: 'ODS-API 7.3 + TPDM', status: 'active', revision: 2290, keySchema: 'ds5-v1', collectionOpens: '2027-10-01' },
   ];
   const sc = [{ kind: 'namespace', value: ns }, { kind: 'edorgSubtree', value: 'SEA 990000 (state EdOrgs)' }, { kind: 'edorg', res: 'courses', value: 'SEA 990000 (state course catalog)' }];
   const scopes = { 2027: sc, 2026: sc };
@@ -334,8 +334,8 @@ const MN = (() => {
       ] },
     { id: 39, title: 'Roll-forward 2026 → 2027', year: 2027, author: 'r.dhanawade', contributors: ['r.dhanawade'], status: 'approved', created: '2026-08-12', hash: '19fe…0c', approver: 'a.chen', items: [] },
   ];
-  const ok26 = targets.filter(t => t.scen === 'mn' && t.tags.School_Year === '2026' && compat(t, 2026, yearSets[1]).ok);
-  const ok27 = targets.filter(t => t.scen === 'mn' && t.tags.School_Year === '2027' && compat(t, 2027, yearSets[0]).ok);
+  const ok26 = targets.filter(t => t.scen === 'mn' && t.tags.School_Year === '2026' && compat(t, 2026, yearSets[0]).ok);
+  const ok27 = targets.filter(t => t.scen === 'mn' && t.tags.School_Year === '2027' && compat(t, 2027, yearSets[1]).ok);
   const opsIn = [
     { ix: 0, op: 'create', ep: 'courseLevelCharacteristicDescriptors', key: `${ns}#CIS-ONLINE`, etag: null },
     { ix: 1, op: 'update', ep: 'courses', key: 'CIS-ENG#990000', etag: '"a913…"' },
@@ -370,7 +370,7 @@ const MN = (() => {
       sample: { op: 'update', ep: 'gradeLevelDescriptors', key: `${ns}#PK`, base: 2, recordId: 103, before: { description: 'Pre-Kindergarten' }, after: { description: 'Pre-Kindergarten (ages 3–4)' } } },
   ];
   return { yearSets, scopes, counts, descriptors, changeRequests, manifests, runs, drift, sources, push: { year: 2027, env: '' },
-    settings: { applyConcurrency: 25, applyBreakerPct: 10, quietWindow: 'Sat 01:00–05:00 America/Chicago' } };
+    settings: { applyConcurrency: 25, applyBreakerPct: 10, quietWindow: 'Sat 01:00–05:00 America/Chicago', partnerKind: 'state' } };
 })();
 function sumCounts(per) { const c = { ok: 0, failed: 0, skipped: 0, conflict: 0, uncertain: 0, pending: 0 }; per.forEach(p => Object.keys(c).forEach(k => c[k] += p[k] || 0)); return c; }
 const DATA = { pilot: PILOT, mn: MN };
@@ -411,7 +411,7 @@ const FAM = (() => {
       r('assessments', ['LK-READ-BOY-3', L, 'Lakeside Reading Benchmark · BOY · Grade 3', 'English Language Arts', 'Third grade'], 2),
       r('objectiveAssessments', ['LK-MATH-BOY-3.NBT', L, 'Number & Operations in Base Ten', 'Mathematics', 'Third grade'], 1),
       r('objectiveAssessments', ['LK-MATH-BOY-3.OA', L, 'Operations & Algebraic Thinking', 'Mathematics', 'Third grade'], 1),
-      r('assessments', ['STATE-ELA-8', 'uri://state.example.org', 'State Summative ELA · Grade 8', 'English Language Arts', 'Eighth grade'], 0, true),
+      r('assessments', ['STATE-ELA-8', 'uri://doe.lakestate.gov', 'State Summative ELA · Grade 8', 'English Language Arts', 'Eighth grade'], 0, true),
     ],
     chartOfAccounts: [
       r('chartOfAccounts', ['10-1000-110', '2026', 'LEA 255901', '10 General', '1000 Instruction', '110 Salaries', 'Instruction salaries'], 2),
@@ -501,7 +501,7 @@ window.tombstoneFam = (key, i) => {
 const teamSettings = () => DATA[S.scenario].settings;
 const kindOf = year => { const y = yearSet(year); return y && y.collectionOpens && TODAY >= y.collectionOpens ? 'in_year' : 'setup'; };
 window.setScenario = sc => {
-  S.scenario = sc; S.pg = {};
+  S.scenario = sc; S.pg = {}; S.rfNs = null;
   ({ yearSets, scopes, counts, descriptors, changeRequests, manifests, runs, drift, sources } = DATA[sc]);
   S.push = { step: 1, year: DATA[sc].push.year, env: DATA[sc].push.env, tenant: '', deletes: false, manifestId: null };
   if (location.hash && location.hash !== '#/') go('#/'); else render();
@@ -579,6 +579,7 @@ screens.year = (yr) => {
       <div class="field"><label class="view">Status</label>${T(y.status)}</div>
       <div class="field"><label class="view">Pinned data standard</label>${y.ds} <span class="muted sm">· key schema ${y.keySchema}</span></div>
       <div class="field"><label class="view">Published revision</label><span class="mono">${y.revision}</span></div>
+      <div class="field"><label class="view">Descriptor namespaces</label>${nsFor(y.year).map(n => `<span class="mono">${n}</span>`).join('<br/>') || '<span class="muted">none</span>'}</div>
       <div class="field"><label class="view">Managed scopes</label>${(scopes[y.year]||[]).length} (<a class="lnk" href="#/settings">edit</a>)</div>
       <div class="field"><label class="view">Approved manifests</label>${approvedManifests(y.year).length}</div>
       ${y.collectionOpens ? `<div class="field"><label class="view">Collection opens</label>${y.collectionOpens} · ${kindOf(y.year) === 'in_year' ? T('in_year', 'in-year adjustments only') : T('setup', 'pre-collection setup')}</div>` : ''}
@@ -905,16 +906,38 @@ window.pullSource = i => { const d = ensureDraft(); d.title = `Pull from ${sourc
 screens.settings = () => page({ title: 'Settings · managed scopes', actions: [{ icon: 'bi-plus-lg', text: 'Add scope', onclick: `toast('Scope kinds: descriptor namespace prefix · EdOrg subtree · exact EdOrg (edorg) · all')`, disabled: !can('configure') }], body: `
   ${!can('configure') ? noPriv('configure') : ''}
   ${section('Apply and quiet windows (team settings)', `<div class="attrs"><div class="field"><label class="view">applyConcurrency</label><span class="mono">${teamSettings().applyConcurrency}</span> targets at once</div><div class="field"><label class="view">applyBreakerPct</label><span class="mono">${teamSettings().applyBreakerPct}%</span> failed of finished targets suspends the run</div><div class="field"><label class="view">Quiet window</label>${teamSettings().quietWindow || '<span class="muted">none</span>'}</div>${S.scenario === 'mn' ? `<div class="field"><label class="view">Master-data writers</label>MDM only · EA applies the claimset lock on every LEA ODS</div>` : ''}${yearSets.filter(y => y.collectionOpens).map(y => `<div class="field"><label class="view">collectionOpensOn · ${y.year}</label>${y.collectionOpens} ${kindOf(y.year) === 'in_year' ? T('in_year', 'in-year') : T('setup', 'setup')}</div>`).join('')}</div><div class="sm muted" style="margin-top:.5rem">The breaker evaluates once ${teamSettings().applyConcurrency} targets have finished. After a year set's collection opens, its manifests refuse deletes, need a second approval, and run only in the quiet window. Starting values; tune against real ODS load.</div><div style="margin-top:.75rem"><button class="btn sm outline" ${can('configure')?'':'disabled'} onclick="toast('PUT /teams/:teamId/mdm-settings')">${I('bi-pencil')} Edit</button></div>`)}
-  ${section('Partner namespaces (set on the MDM vendor in SBAA)', `<div class="row wrap">${[...new Set(Object.values(scopes).flat().filter(sc => sc.kind === 'namespace').map(sc => sc.value))].map(n => `<span class="tag">${n}</span>`).join('')}<button class="btn sm outline" ${can('configure')?'':'disabled'} onclick="toast('PUT /api/teams/:teamId/mdm/namespaces → vendor namespacePrefixes updated')">${I('bi-pencil')} Edit</button></div><div class="sm muted" style="margin-top:.5rem">Descriptors in <span class="mono">uri://ed-fi.org</span>, LEA namespaces, and other vendors' namespaces are imported read-only. Ed-Fi namespace authorization is separate from resource CRUD.</div>`)}
+  ${section('Partner namespaces (set on the MDM vendor in SBAA)', `<div class="row wrap">${[...new Set(Object.values(scopes).flat().filter(sc => sc.kind === 'namespace').map(sc => sc.value))].map(n => `<span class="tag">${n}</span>`).join('')}<button class="btn sm outline" ${can('configure')?'':'disabled'} onclick="toast('PUT /api/teams/:teamId/mdm/namespaces → vendor namespacePrefixes updated')">${I('bi-pencil')} Edit</button></div><div class="sm muted" style="margin-top:.5rem">Descriptors in <span class="mono">uri://ed-fi.org</span>, LEA namespaces, and other vendors' namespaces are imported read-only. Ed-Fi namespace authorization is separate from resource CRUD. Namespaces are entered per year set when it is created or rolled forward; the vendor's prefixes are the union across active year sets.${teamSettings().partnerKind === 'state' ? ' State team: every namespace is a state <span class="mono">.gov</span> URI.' : ''}</div>`)}
   ${section('Managed scopes by year set', `<table class="sbaa"><thead><tr><th>Year set</th><th>Kind</th><th>Scope</th><th></th></tr></thead><tbody>${Object.entries(scopes).sort((a,b)=>b[0]-a[0]).flatMap(([y, list]) => list.map(sc => `<tr><td>${y}</td><td>${T('', sc.kind)}</td><td class="mono">${sc.res ? sc.res + ' · ' : ''}${sc.value}</td><td><button class="btn table-row row-hover" ${can('configure')?'':'disabled'}>${I('bi-trash')}</button></td></tr>`)).join('')}</tbody></table><div class="sm muted" style="margin-top:.5rem">MDM may create, update, or tombstone records only inside a scope. Set difference between a target and MDM never produces a delete.</div>`)}
   ${section(`Field ownership policy · <span class="mono">ownershipProfile = ${S.scenario === 'mn' ? 'sole-writer' : 'default'}</span>`, `<table class="sbaa"><thead><tr><th>Family</th><th>Owned paths</th><th>Create</th><th>Update</th></tr></thead><tbody>${families.map(f => { const all = f.owned === 'all' || S.scenario === 'mn'; return `<tr><td>${f.label}</td><td>${all ? 'all' + (f.owned !== 'all' ? ' <span class="sm muted">(incl. webSite, addresses, phones)</span>' : '') : '<span class="mono">nameOfInstitution, shortNameOfInstitution, parent refs, categories</span>'}</td><td>full stored payload</td><td>${all ? 'full replace' : 'owned paths merged into target representation'}</td></tr>`; }).join('')}</tbody></table>${S.scenario === 'mn' ? '<div class="sm muted" style="margin-top:.5rem">sole-writer: MDM owns every path. Safe because the claimset lock removes write access from every other application.</div>' : ''}`)}` });
 
-screens.rollforward = () => page({ title: 'Roll forward', body: `
-  ${!can('edit') ? noPriv('edit') : ''}
-  <div class="row wrap" style="margin-bottom:1.5rem"><div class="field" style="margin:0"><label style="margin-top:0">From year set</label><select class="input"><option>2026 · DS 5.2 (rev 517)</option><option>2025 · DS 5.1 (rev 402)</option><option>2024 · DS 4.0 — EA 6.x sandbox (rev 118)</option></select></div><span style="margin-top:1.75rem">${I('bi-arrow-right')}</span><div class="field" style="margin:0"><label style="margin-top:0">New year set</label><input class="input" value="2027" style="width:6em"/></div><div class="field" style="margin:0"><label style="margin-top:0">Pin data standard</label><select class="input"><option>DS 5.2 (same — straight copy)</option><option>DS 6.0 (mapping required)</option></select></div></div>
-  <div class="sm muted" style="margin-bottom:1rem">Creates the new year set first, then clones published records into one draft change request. Each family's registry rule decides what changes: school-year fields rewritten, year-less resources cloned unchanged, fiscal-year keys handled per overlay. Crossing a standard applies the hand-written mapping; unmapped required fields become item errors.</div>
-  <table class="sbaa"><thead><tr><th>Family</th><th>Records</th><th>Roll-forward rule</th><th>Mapping</th></tr></thead><tbody>${families.map((f,i) => `<tr><td>${I(f.icon)} &nbsp;${f.label}</td><td>${counts[2026][i]}</td><td class="sm">${f.key === 'chartOfAccounts' ? 'fiscal-year key rewritten per overlay' : ['descriptors','programs','courses'].includes(f.key) ? 'year-less — cloned unchanged' : 'school-year fields rewritten'}</td><td>${T('ok','same standard — none')}</td></tr>`).join('')}</tbody></table>
-  <div style="margin-top:1.5rem"><button class="btn primary" ${can('edit')?'':'disabled'} onclick="toast('Year set 2027 created (DS 5.2 pinned). Roll-forward job queued → draft change request.')">${I('bi-arrow-repeat')} Create 2027 from 2026</button></div>` });
+// Q28: a new year set starts with its descriptor namespaces. State teams use state .gov URIs only.
+const nsFor = y => (scopes[y] || []).filter(sc => sc.kind === 'namespace').map(sc => sc.value);
+const nsProblems = list => list.map(n => { const m = /^uri:\/\/([a-z0-9-]+(\.[a-z0-9-]+)+)$/i.exec(n);
+  return !m ? `${n || '(blank)'}: not a uri://<host> namespace` : teamSettings().partnerKind === 'state' && !/\.gov$/i.test(m[1]) ? `${n}: a state namespace must be a state .gov URI (uri://<statename>.gov)` : null; }).filter(Boolean);
+screens.rollforward = () => {
+  const from = yearSets.reduce((a, y) => y.year > a.year ? y : a); const to = from.year + 1; const st = teamSettings().partnerKind === 'state';
+  const ns = S.rfNs ?? nsFor(from.year).join('\n'); const probs = nsProblems(ns.split('\n').map(x => x.trim()).filter(Boolean));
+  return page({ title: `Roll forward ${from.year} → ${to}`, body: `
+  ${!can('configure') ? noPriv('configure') : ''}
+  ${section(`1. Descriptor namespaces for ${to}`, `<div class="sm muted" style="margin-bottom:.5rem">Enter these first: every import and change item in ${to} is checked against them. Pre-filled from ${from.year}. One per line.${st ? ' <b>State team:</b> each namespace is a state government URI, <span class="mono">uri://&lt;statename&gt;.gov</span> or another state <span class="mono">.gov</span> address such as <span class="mono">uri://education.mn.gov</span>.' : ''}</div>
+    <textarea id="rf-ns" class="input mono" rows="3" style="width:100%;max-width:36em" oninput="S.rfNs=this.value">${esc(ns)}</textarea>
+    ${probs.length ? `<div class="alert warning" style="margin-top:.75rem">${I('bi-exclamation-triangle-fill')}<div>${probs.map(esc).join('<br/>')}</div></div>` : `<div class="sm" style="margin-top:.5rem">${T('ok', 'valid')} Each becomes a <span class="mono">namespace</span> managed scope; the MDM vendor's prefixes become the union across active year sets.</div>`}`)}
+  ${section('2. Year set and records', `<div class="row wrap" style="margin-bottom:1.5rem"><div class="field" style="margin:0"><label style="margin-top:0">From year set</label><select class="input"><option>${from.year} · ${from.ds} (rev ${from.revision})</option></select></div><span style="margin-top:1.75rem">${I('bi-arrow-right')}</span><div class="field" style="margin:0"><label style="margin-top:0">New year set</label><input class="input" value="${to}" style="width:6em" disabled/></div><div class="field" style="margin:0"><label style="margin-top:0">Pin data standard</label><select class="input"><option>${from.ds} (same — straight copy)</option><option>DS 6.0 (mapping required)</option></select></div></div>
+  <div class="sm muted" style="margin-bottom:1rem">Creates the new year set, then clones published records into one draft change request. Each family's registry rule decides what changes: school-year fields rewritten, year-less resources cloned unchanged, fiscal-year keys handled per overlay. Crossing a standard applies the hand-written mapping; unmapped required fields become item errors.</div>
+  <table class="sbaa"><thead><tr><th>Family</th><th>Records</th><th>Roll-forward rule</th><th>Mapping</th></tr></thead><tbody>${famsFor(from.year).map(f => `<tr><td>${I(f.icon)} &nbsp;${f.label}</td><td>${counts[from.year][families.indexOf(f)]}</td><td class="sm">${f.key === 'chartOfAccounts' ? 'fiscal-year key rewritten per overlay' : ['descriptors','programs','courses'].includes(f.key) ? 'year-less — cloned unchanged' : 'school-year fields rewritten'}</td><td>${T('ok','same standard — none')}</td></tr>`).join('')}</tbody></table>`)}
+  <div style="margin-top:1.5rem"><button class="btn primary" ${can('configure') && !probs.length ? '' : 'disabled'} onclick="rollForward()">${I('bi-arrow-repeat')} Create ${to} from ${from.year}</button></div>` });
+};
+window.rollForward = () => {
+  const from = yearSets.reduce((a, y) => y.year > a.year ? y : a); const to = from.year + 1;
+  const ns = (S.rfNs ?? nsFor(from.year).join('\n')).split('\n').map(x => x.trim()).filter(Boolean);
+  const probs = nsProblems(ns); if (!ns.length || probs.length) { toast(probs[0] || 'Enter at least one namespace'); return; }
+  yearSets.push({ year: to, ds: from.ds, api: from.api, status: 'draft', revision: 0, keySchema: from.keySchema, ...(from.collectionOpens ? { collectionOpens: `${to}-10-01` } : {}) });
+  yearSets.sort((a, b) => a.year - b.year);
+  scopes[to] = [...ns.map(value => ({ kind: 'namespace', value })), ...(scopes[from.year] || []).filter(sc => sc.kind !== 'namespace')];
+  counts[to] = [...counts[from.year]]; S.open[to] = true; S.rfNs = null;
+  changeRequests.unshift({ id: Math.max(...changeRequests.map(c => c.id)) + 1, title: `Roll-forward ${from.year} → ${to}`, year: to, author: me().id, contributors: [me().id], status: 'draft', created: TODAY, hash: null, items: [] });
+  toast(`Year set ${to} created with ${ns.length} namespace(s). Roll-forward job queued → draft change request.`); go(`#/year/${to}`);
+};
 
 screens.account = () => page({ title: 'Account', body: `<div class="attrs"><div class="field"><label class="view">Name</label>${me().name}</div><div class="field"><label class="view">Team</label>${partner.team}</div><div class="field"><label class="view">SBAA role</label>${T('', me().role)}</div><div class="field"><label class="view">Effective MDM privileges</label>${me().priv.map(p => `<span class="mono">team.mdm:${p}</span>`).join(' ')}</div><div class="field"><label class="view">Identity resolved by</label><span class="mono">POST /api/mdm/identity</span> (SBAA, service-to-service)</div></div>
   ${section('Roles (one per membership)', `<table class="sbaa"><thead><tr><th>Role</th><th>Privileges</th><th>Note</th></tr></thead><tbody>${[['mdm-editor','read, edit',''],['mdm-approver','read, edit, approve','cannot approve a batch they contributed to'],['mdm-publisher','read, edit, publish','approves and applies manifests'],['mdm-admin','read, edit, approve, publish, configure','not exempt from separation of duties'],['machine user','read, edit, publish','can never approve']].map(r => `<tr><td class="mono">${r[0]}</td><td>${r[1]}</td><td class="sm muted">${r[2]}</td></tr>`).join('')}</tbody></table>`)}` });
@@ -945,7 +968,7 @@ function crumbs() {
   if (h[0] === 'drift') c.push([location.hash, 'Drift']);
   if (h[0] === 'sources') c.push([location.hash, 'Upstream sources']);
   if (h[0] === 'settings') c.push([location.hash, 'Settings']);
-  if (h[0] === 'rollforward') { yr(yearSets.find(y => ['current'].includes(y.status)).year); c.push([location.hash, 'Roll forward']); }
+  if (h[0] === 'rollforward') { yr(yearSets.reduce((a, y) => y.year > a.year ? y : a).year); c.push([location.hash, 'Roll forward']); }
   if (h[0] === 'account') c.push([location.hash, 'Account']);
   return `<div class="crumbs">${c.map(([href, label], i) => `${i ? '<span class="sep">/</span>' : ''}<a href="${href}">${label}</a>`).join('')}</div>`;
 }

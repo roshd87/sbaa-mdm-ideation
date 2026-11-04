@@ -17,7 +17,7 @@ Existing SBAA resource hierarchy: `Team → SB Environment (SBE) → Ed-Fi Tenan
 
 ## 3. Decisions
 
-_All closed 2026-10-06; Q26 added 2026-10-07; Q27 added 2026-11-04. Each entry: question → decision → rationale._
+_All closed 2026-10-06; Q26 added 2026-10-07; Q27 and Q28 added 2026-11-04. Each entry: question → decision → rationale._
 
 **Q1. What counts as master data (v1)?**
 → EdOrgs, Descriptors, Programs, Assessments (assessment metadata, not StudentAssessments), Chart of Accounts, Certifications, Descriptor Mappings, Courses (opt-in, Q26). App must have expansion capacity for future Ed-Fi resources. *(Courses added 2026-10-07: Q26.)*
@@ -189,6 +189,17 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 → MDM creates the SEA EdOrg in every LEA ODS from the state's `edorgSubtree` scope. `/dependencies` orders it before courses (Q26). The preview flags a target missing the SEA.
 → Rationale: per-LEA tenants make target count, not record count, the scale axis. One manifest keeps triage and re-run on one object. The breaker stops a systemic error before it reaches 500 ODSs. Before collection, no student data references master data, so setup needs no window. After collection opens, live student records reference descriptors and courses; deletes risk orphaning them, and SIS loads peak during the school day. A scheduled window, a second approver, and no tombstones contain that risk without a new role. With MDM as the only master-data writer, drift and 412 conflicts come only from out-of-band edits, so a nightly scan across 500 ODSs costs read load for little signal. One owner of the deployment makes uniform fingerprints an operational guarantee; the check remains to catch a missed upgrade.
 
+**Q28. Descriptor namespaces per year set (added 2026-11-04).**
+→ Descriptor namespaces belong to the year set. `mdm_year_set` gains `descriptorNamespaces`.
+→ Creating a year set starts with the namespace step. `mdm-admin` enters the namespaces before any import, record, or target.
+→ Roll-forward pre-fills the source year set's namespaces. The admin confirms or changes them.
+→ Each namespace becomes a `namespace` managed scope of the new year set (Q20).
+→ The MDM vendor's `namespacePrefixes` holds the union of the team's active year-set namespaces.
+→ The team setting `partnerKind` takes `state` or `other`. *Applies to `state` only:*
+→ Every namespace follows `uri://<statename>.gov` or another state government URI (e.g. `uri://education.mn.gov`).
+→ The namespace step refuses a host that does not end in `.gov`.
+→ Rationale: a new school year is when an agency re-issues or retires namespaces. Fixing them first means every import and change item is checked against the right prefix from the start. A descriptor namespace names the issuing authority; for a state, that authority is a government domain.
+
 ## 4. In Scope
 
 **Resources (v1 total):** EdOrgs, Descriptors, Programs, Assessments (metadata only), Chart of Accounts, Certifications, Descriptor Mappings, Courses (opt-in per year set, Q26). Resource set is config-driven so new Ed-Fi resources can be added without a schema change.
@@ -196,7 +207,7 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 **Architecture**
 - `packages/mdm-api` (NestJS, cookie-session BFF) and `packages/mdm-fe` (React) in the SBAA monorepo; own PostgreSQL DB; own deploy pipeline; share `models`, `utils`, `common-ui`.
 - `mdm-fe` reproduces SBAA's chrome; Home is a workflow inbox; data browsed by year set → resource family (Q17).
-- Year sets pin a data standard; generic JSONB record store keyed by (year set, concrete Ed-Fi resource, canonical natural key, key-schema version); append-only versions; managed scopes bound record-level authority; typed projections for EdOrgs and Descriptors.
+- Year sets pin a data standard and their descriptor namespaces, entered first at creation (Q28); generic JSONB record store keyed by (year set, concrete Ed-Fi resource, canonical natural key, key-schema version); append-only versions; managed scopes bound record-level authority; typed projections for EdOrgs and Descriptors.
 - Records stored in write shape for the year set's pinned standard; validated against each compatible target's OpenAPI fingerprint.
 - Same OIDC IdP as SBAA; identity and `team.mdm:*` privileges resolved through SBAA's service endpoint (Q18); four SBAA roles `mdm-editor`, `mdm-approver`, `mdm-publisher`, `mdm-admin` (Q22).
 - `mdm-api` → SBAA API via a least-privilege service identity. SBAA API gains: identity resolution, owned-ODS targets with fingerprints, per-ODS application ensure, service-only credential read/rotate, namespace setting. `sbaa_api_client` gains matching methods plus MDM year-set/record/change-request/manifest/run wrappers.

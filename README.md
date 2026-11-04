@@ -4,7 +4,7 @@ Planning artefacts for adding a partner-level Master Data Management capability 
 
 | File | What it is | Read it if… |
 |---|---|---|
-| `ProjectScope.md` | 27 decisions with rationale, in/out of scope, risks, future scope | you need to know *why* |
+| `ProjectScope.md` | 28 decisions with rationale, in/out of scope, risks, future scope | you need to know *why* |
 | `ProjectPlan.md` | One-page staged plan | you need the shape of the work |
 | `EngineeringBrief.md` | Concise technical brief: architecture, SBAA changes, data model, registry, workflow, stages | you are an engineer new to the project |
 | `ImplementationPlan.md` | 77 engineering steps against the SBAA monorepo, with checks and release order | you are building it |

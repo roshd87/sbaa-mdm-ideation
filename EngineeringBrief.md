@@ -1,6 +1,6 @@
 # Engineering Brief: MDM for SBAA
 
-Technical summary of the Master Data Management (MDM) addition to the StartingBlocks Admin App (SBAA). Sources of record: `ProjectScope.md` (decisions Q1–Q27), `ProjectPlan.md` (stages), `ImplementationPlan.md` (77 steps). This brief does not override them.
+Technical summary of the Master Data Management (MDM) addition to the StartingBlocks Admin App (SBAA). Sources of record: `ProjectScope.md` (decisions Q1–Q28), `ProjectPlan.md` (stages), `ImplementationPlan.md` (77 steps). This brief does not override them.
 
 ## 1. What ships
 
@@ -69,7 +69,7 @@ New module `packages/api/src/mdm/`. All paths sit under `/api`.
 
 |Table|Key fields|
 |---|---|
-|`mdm_year_set`|`teamId`, `schoolYear`, pinned `dataStandard`, `keySchemaVersion`, `status`, `collectionOpensOn`; unique (team, year)|
+|`mdm_year_set`|`teamId`, `schoolYear`, pinned `dataStandard`, `keySchemaVersion`, `status`, `collectionOpensOn`, `descriptorNamespaces` (Q28); unique (team, year)|
 |`mdm_record`|`yearSetId`, `resourceKey`, `canonicalKey` (jsonb), `canonicalKeyHash`, `data` (write-shape jsonb), `revision`|
 |`mdm_record_version`|append-only `before`/`after`, `changeRequestId`, `actorUserId`|
 |`mdm_managed_scope`|`yearSetId`, `resourceKey`, `scopeKind` `namespace \| edorgSubtree \| edorg \| all`, `scopeValue`|
@@ -167,7 +167,9 @@ Courses behaviour by deployment:
 - A batch `ensure` job provisions every target's MDM application. A target with a missing or outdated application is blocked.
 - EA's provisioning tags each LEA ODS; the build screen lists untagged owned ODSs. MDM pushes the SEA EdOrg before courses.
 
-**Roll-forward (Q4, Q9, Q24).** Create year set N+1, then clone published records into a draft change request using per-resource rules. Year-less resources clone unchanged. Crossing a standard runs the hand-written `ds4-to-ds5` mapping; unmapped required fields become item errors.
+**Year-set creation (Q28).** The first step enters the year set's descriptor namespaces; each becomes a `namespace` managed scope. For `partnerKind = state`, every namespace is a state `.gov` URI (`uri://<statename>.gov`, `uri://education.mn.gov`).
+
+**Roll-forward (Q4, Q9, Q24, Q28).** Pre-fill the source namespaces, then create year set N+1, then clone published records into a draft change request using per-resource rules. Year-less resources clone unchanged. Crossing a standard runs the hand-written `ds4-to-ds5` mapping; unmapped required fields become item errors.
 
 ## 8. Stages
 
