@@ -180,6 +180,13 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 → An in-year manifest needs a second approval. The approver is a human with `approve` or `publish`, not the manifest's creator.
 → An in-year run waits for the next quiet window configured by `mdm-admin`. Unfinished targets suspend when the window closes.
 → Drift scans are off by default. A publisher starts an on-demand scan. Scans use the `applyConcurrency` cap.
+→ *Statewide operations (added 2026-11-04):*
+→ Manifest operations are rows in `mdm_push_manifest_operation`, one per target per operation. The manifest header stores a hash over them (Q21 immutability unchanged).
+→ Payloads are stored once in `mdm_push_payload`, keyed by content hash. Identical payloads across targets share one row.
+→ A batch `ensure` job reconciles the MDM application of every tagged target in a year set, under `applyConcurrency`. Secret rotation is staggered (Q6, Q19).
+→ A manifest build blocks a target whose MDM application is missing or behind the current claimset version, with a reason.
+→ EA's ODS provisioning tags each new LEA ODS. Before each build, MDM lists owned ODSs that lack a `School_Year` tag (Q5).
+→ MDM creates the SEA EdOrg in every LEA ODS from the state's `edorgSubtree` scope. `/dependencies` orders it before courses (Q26). The preview flags a target missing the SEA.
 → Rationale: per-LEA tenants make target count, not record count, the scale axis. One manifest keeps triage and re-run on one object. The breaker stops a systemic error before it reaches 500 ODSs. Before collection, no student data references master data, so setup needs no window. After collection opens, live student records reference descriptors and courses; deletes risk orphaning them, and SIS loads peak during the school day. A scheduled window, a second approver, and no tombstones contain that risk without a new role. With MDM as the only master-data writer, drift and 412 conflicts come only from out-of-band edits, so a nightly scan across 500 ODSs costs read load for little signal. One owner of the deployment makes uniform fingerprints an operational guarantee; the check remains to catch a missed upgrade.
 
 ## 4. In Scope
@@ -244,10 +251,12 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 - Pilot capability matrix is closed (7.3 / DS 5.2 / TPDM / unprofiled; EA-hosted 6.x sandbox for DS4). The Stage 2 partner (Minnesota) runs on EA's uniform deployment (Q27); a later partner may run a different release or profiles — the fingerprint check must block, not warn.
 - Writer-quiescence is an operational agreement, not a technical guarantee; count-drift abort is the only safety net.
 - Statewide fan-out (Q27): N and X need tuning against real ODS load before the first statewide apply. A missed `collectionOpensOn` date lets a setup manifest with tombstones run against live data.
+- Statewide volume (Q27): about 123,000 operations per catalog refresh and about 512 MDM applications per year. Child operation rows with shared payloads, a batch `ensure` job, and a readiness block contain both.
+- Statewide tagging (Q27): about 512 new ODSs per year. Provisioning tags them; the coverage check lists any it missed.
 - MDM as sole master-data writer (Q27): LEAs cannot add local codes in MDM-controlled domains. An MDM outage blocks every master-data change statewide.
 - `sole-writer` ownership (Q27) overwrites any field another application writes. It is safe only where the claimset lock holds on every target.
 - The upstream connector adds network and secret authority; its SSRF and secret-ownership controls are mandatory Stage 3 acceptance criteria.
-- Courses reference their owning EdOrg. A target without that EdOrg (e.g. the SEA) refuses every Course create (Q26).
+- Courses reference their owning EdOrg. A target without that EdOrg (e.g. the SEA) refuses every Course create (Q26). Statewide, MDM pushes the SEA EdOrg first (Q27).
 
 ## 7. Future Scope (not v1)
 

@@ -14,13 +14,13 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 | 3 Remaining + years | All eight families are pushable. One year rolls from 6.x/DS4 to 7.x/DS5. File intake and upstream intake land as change requests. | L |
 | 4 Stretch: drift | The pilot receives a scheduled drift report. The UI flags the drifted records. | S |
 
-**Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; Minnesota joins at Stage 2 (Q15, Q27). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a). Statewide: EA owns a uniform deployment and MDM is the only master-data writer; one manifest fans out to every LEA tenant under a concurrency cap and circuit breaker; in-year adjustments need a quiet window and a second approval (Q27).
+**Decisions.** Pilot: EA internal tenant on ODS/API 7.3 / DS 5.2 with TPDM, MDM app unprofiled, current school year; Minnesota joins at Stage 2 (Q15, Q27). DS4 proof: EA-hosted 6.x sandbox from fixtures (Q9). Bulk reads run in a writer-quiescence window; count drift aborts (Q7). Upstream sources: HTTP API only; direct database access deferred (Q8a). Statewide: EA-owned uniform deployment; MDM is the only master-data writer; one capped manifest per change; in-year changes need a window and a second approval (Q27).
 
 ## Stage 0 — Foundations
 
 - **SBAA API:** Add roles `mdm-editor`, `mdm-approver`, `mdm-publisher`, `mdm-admin`. Add the identity endpoint, the per-ODS application `ensure` with SBAA-held credentials, the service-only credential read and rotation, the namespace setting, and owned-ODS target listing with fingerprints (Q5, Q6, Q18, Q19, Q20, Q22).
 - **mdm-api:** Create the NestJS package with its own TypeORM datasource and pg-boss schema. Use a host-scoped cookie-session BFF; resolve identity through SBAA; use bearer tokens only for service calls (Q2, Q10, Q18).
-- **mdm-api:** Create `mdm_year_set`, `mdm_record`, `mdm_record_version`, `mdm_managed_scope`, `mdm_change_request` (+ contributors), `mdm_change_item`, `mdm_push_manifest`, `mdm_push_run`, `mdm_push_run_record`. Build the registry from the pinned OpenAPI document, one entry per concrete descriptor endpoint (Q3, Q4, Q20, Q21, Q23, Q24).
+- **mdm-api:** Create `mdm_year_set`, `mdm_record`, `mdm_record_version`, `mdm_managed_scope`, `mdm_change_request` (+ contributors), `mdm_change_item`, `mdm_push_manifest` (+ operations, payloads), `mdm_push_run`, `mdm_push_run_record`. Build the registry from the pinned OpenAPI document, one entry per concrete descriptor endpoint (Q3, Q4, Q20, Q21, Q23, Q24, Q27).
 - **mdm-fe:** Create the React package on `common-ui`. Reproduce the SBAA chrome. Wire the login (Q2, Q17).
 - **Infra:** Add the MDM Postgres, the Keycloak `mdm` client, and the Nx serve targets to local dev. Create the deployed database, pipeline, and Secrets Manager access (Q2).
 
@@ -38,6 +38,7 @@ This plan delivers `ProjectScope.md` §4 in five stages: Stage 0 lays the founda
 - **SBAA API:** Extend the claimset to the EdOrg resources (Q6).
 - **mdm-api:** Add the EdOrg registry entries with one natural key for each subtype (`schoolId`, `localEducationAgencyId`, …). Build the tree read-model. Add the mixed ownership lists; show non-owned fields only for visibility. Add the `sole-writer` ownership profile: every path owned, full replace (Q27). Rely on `/dependencies` to place LEA before School. Add record-level reference edges; skip dependents of failures; block a parent delete when a child delete fails (Q3, Q7a, Q12, Q14, Q27).
 - **mdm-fe:** Build the tree editor. Mark owned and non-owned fields in the manifest preview (Q3, Q14).
+- **mdm-api:** Add the batch `ensure` job, the tag coverage check, and the application readiness block. Push the SEA EdOrg first (Q5, Q6, Q26, Q27).
 - **mdm-api:** Add `collectionOpensOn` and quiet windows. Gate in-year manifests: no deletes, a second approval by someone other than the creator (Q13a, Q27).
 - **Docs:** Write the claimset hard-enforcement guidance for fully-owned resources (Q14).
 

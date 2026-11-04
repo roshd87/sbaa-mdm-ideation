@@ -59,6 +59,7 @@ New module `packages/api/src/mdm/`. All paths sit under `/api`.
 |`GET /mdm/applications/:odsId/credentials`|service|Return the key, secret, and previous secret during the rotation overlap.|
 |`POST /mdm/applications/:odsId/rotate`|service|Issue a new secret. The previous one stays valid for 24 h. Audited with `X-MDM-Actor`.|
 |`PUT /teams/:teamId/mdm/namespaces { prefixes }`|`configure`|Set the MDM vendor's `namespacePrefixes`.|
+|`GET /teams/:teamId/mdm/targets/untagged`|human, service|Owned ODSs with no `School_Year` tag, for the coverage check (Q27).|
 
 - New table `mdm_integration_credential`: `odsId` unique, encrypted key and secret, rotation fields, `claimsetVersion`. It uses SBAA's existing at-rest encryption.
 - Versioned claimsets live in `packages/models/src/mdm/claimset.v<n>.json`. `ensure` reconciles each ODS to the current version before MDM pushes a new resource type.
@@ -74,7 +75,8 @@ New module `packages/api/src/mdm/`. All paths sit under `/api`.
 |`mdm_managed_scope`|`yearSetId`, `resourceKey`, `scopeKind` `namespace \| edorgSubtree \| edorg \| all`, `scopeValue`|
 |`mdm_change_request` (+ `_contributor`)|`status` `draft → submitted → approved \| rejected`, `submittedHash`, `approverUserId`|
 |`mdm_change_item`|`op` `create \| update \| tombstone`, `baseRevision` or `expectAbsent`, `after`|
-|`mdm_push_manifest`|immutable: `publishedRevision`, `targets` + fingerprints, `blockedTargets`, ordered `operations` with payloads and `observedEtag`, `ownershipPolicyVersion`, `includeDeletes`, `kind` `setup \| in_year`, `secondApproverUserId`|
+|`mdm_push_manifest`|immutable: `publishedRevision`, `targets` + fingerprints, `blockedTargets`, `operationsHash`, `ownershipPolicyVersion`, `includeDeletes`, `kind` `setup \| in_year`, `secondApproverUserId`|
+|`mdm_push_manifest_operation`, `mdm_push_payload`|one row per target per operation (`payloadHash`, `observedEtag`); payloads stored once by content hash (Q27)|
 |`mdm_push_run`, `mdm_push_run_record`|run `running \| success \| partial \| suspended`, `suspendReason` `fingerprint \| breaker \| window`; operation `pending → in_flight → ok \| failed \| skipped \| conflict \| uncertain`|
 |`mdm_team_settings`|`applyConcurrency`, `applyBreakerPct`, `quietWindows`, `ownershipProfile` `default \| sole-writer` (Q27)|
 |`mdm_upstream_source`, `mdm_drift_settings`, `mdm_drift_report`|Stage 3–4|
@@ -162,6 +164,8 @@ Courses behaviour by deployment:
 |In-year adjustment|on or after `collectionOpensOn`|No deletes. Second approval by a human other than the creator (`POST /teams/:teamId/manifests/:id/approve`). The run waits for the next quiet window and suspends at window end.|
 
 - Drift scans are off by default. `POST /teams/:teamId/drift/scan` runs one on demand under `applyConcurrency`.
+- A batch `ensure` job provisions every target's MDM application. A target with a missing or outdated application is blocked.
+- EA's provisioning tags each LEA ODS; the build screen lists untagged owned ODSs. MDM pushes the SEA EdOrg before courses.
 
 **Roll-forward (Q4, Q9, Q24).** Create year set N+1, then clone published records into a draft change request using per-resource rules. Year-less resources clone unchanged. Crossing a standard runs the hand-written `ds4-to-ds5` mapping; unmapped required fields become item errors.
 
