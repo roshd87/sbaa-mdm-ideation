@@ -374,6 +374,130 @@ const MN = (() => {
 })();
 function sumCounts(per) { const c = { ok: 0, failed: 0, skipped: 0, conflict: 0, uncertain: 0, pending: 0 }; per.forEach(p => Object.keys(c).forEach(k => c[k] += p[k] || 0)); return c; }
 const DATA = { pilot: PILOT, mn: MN };
+
+/* ======================= family mock records (schema-driven screens) ======================= */
+// cols[0..keyN-1] form the natural key; edit = column index the demo edit prompts for (null: no editable attribute).
+const FAM_COLS = {
+  edorgs: { cols: ['Ed-Fi ID', 'Name', 'Short name', 'Parent', 'Category'], keyN: 1, edit: 1 },
+  programs: { cols: ['EdOrg', 'Program name', 'Program type', 'Program ID', 'Sponsor'], keyN: 3, edit: 3 },
+  assessments: { cols: ['Identifier', 'Namespace', 'Title', 'Academic subject', 'Grade levels'], keyN: 2, edit: 2 },
+  chartOfAccounts: { cols: ['Account ID', 'Fiscal year', 'EdOrg', 'Fund', 'Function', 'Object', 'Account name'], keyN: 3, edit: 6 },
+  certifications: { cols: ['Certification ID', 'Namespace', 'Title', 'Field', 'Level'], keyN: 2, edit: 2 },
+  descriptorMappings: { cols: ['Value', 'Namespace', 'Mapped value', 'Mapped namespace', 'Descriptor'], keyN: 4, edit: null },
+  courses: { cols: ['Course code', 'EdOrg', 'Title', 'Academic subject', 'Parts'], keyN: 2, edit: 2 },
+};
+const FAM = (() => {
+  const r = (ep, cells, rev, ro) => ({ ep, cells, rev, ro: !!ro });
+  const L = 'uri://lakeside.org', E = 'uri://ea.startingblocks.org', MS = 'uri://education.mn.gov';
+  const pilot = {
+    edorgs: [
+      r('stateEducationAgencies', ['255950', 'State Education Agency (demo)', 'SEA', '—', 'State Education Agency'], 0, true),
+      r('educationServiceCenters', ['255900', 'Region 5 Education Service Center', 'ESC 5', 'SEA 255950', 'Education Service Center'], 0, true),
+      r('localEducationAgencies', ['255901', 'Lakeside Independent School District', 'Lakeside ISD', 'ESC 255900', 'Local Education Agency'], 6),
+      r('schools', ['255901001', 'Lakeside High School', 'LHS', 'LEA 255901', 'School'], 4),
+      r('schools', ['255901104', 'West Lakeside Middle School', 'WLMS', 'LEA 255901', 'School'], 7),
+      r('schools', ['255901118', 'Lakeside STEM Academy', 'LSA', 'LEA 255901', 'School'], 1),
+      r('schools', ['255901201', 'Harbor Elementary', 'HES', 'LEA 255901', 'School'], 3),
+    ],
+    programs: [
+      r('programs', ['LEA 255901', 'Gifted and Talented', 'Gifted and Talented', 'GT-01', 'Local education agency'], 2),
+      r('programs', ['LEA 255901', 'AVID', 'AVID', 'AVID-01', 'Local education agency'], 1),
+      r('programs', ['LEA 255901', 'Dual Language Immersion', 'Dual Language', 'DLI-01', 'State education agency'], 1),
+      r('programs', ['LEA 255901', 'Title I Part A', 'Title I Part A', 'T1A-2026', 'Federal'], 3),
+      r('programs', ['LEA 255901', 'Special Education', 'Special Education', 'SPED-01', 'Federal'], 2),
+    ],
+    assessments: [
+      r('assessments', ['LK-MATH-BOY-3', L, 'Lakeside Math Benchmark · BOY · Grade 3', 'Mathematics', 'Third grade'], 2),
+      r('assessments', ['LK-READ-BOY-3', L, 'Lakeside Reading Benchmark · BOY · Grade 3', 'English Language Arts', 'Third grade'], 2),
+      r('objectiveAssessments', ['LK-MATH-BOY-3.NBT', L, 'Number & Operations in Base Ten', 'Mathematics', 'Third grade'], 1),
+      r('objectiveAssessments', ['LK-MATH-BOY-3.OA', L, 'Operations & Algebraic Thinking', 'Mathematics', 'Third grade'], 1),
+      r('assessments', ['STATE-ELA-8', 'uri://state.example.org', 'State Summative ELA · Grade 8', 'English Language Arts', 'Eighth grade'], 0, true),
+    ],
+    chartOfAccounts: [
+      r('chartOfAccounts', ['10-1000-110', '2026', 'LEA 255901', '10 General', '1000 Instruction', '110 Salaries', 'Instruction salaries'], 2),
+      r('chartOfAccounts', ['10-2100-210', '2026', 'LEA 255901', '10 General', '2100 Student support', '210 Benefits', 'Student support benefits'], 1),
+      r('chartOfAccounts', ['21-1000-640', '2026', 'LEA 255901', '21 Title I', '1000 Instruction', '640 Supplies', 'Title I instructional supplies'], 1),
+      r('functionDimensions', ['1000', '2026', '—', '—', '1000 Instruction', '—', 'Instruction'], 1),
+      r('fundDimensions', ['21', '2026', '—', '21 Title I', '—', '—', 'Title I, Part A'], 1),
+    ],
+    certifications: [
+      r('tpdm/certifications', ['LK-ELEM-K6', E, 'Elementary Education K–6', 'Elementary Education', 'Initial'], 1),
+      r('tpdm/certifications', ['LK-MATH-712', E, 'Mathematics 7–12', 'Mathematics', 'Professional'], 1),
+      r('tpdm/certifications', ['LK-SPED-K12', E, 'Special Education K–12', 'Special Education', 'Initial'], 2),
+    ],
+    descriptorMappings: [
+      r('descriptorMappings', ['TRU', L, 'Unexcused Absence', 'uri://ed-fi.org', 'attendanceEventCategoryDescriptor'], 1),
+      r('descriptorMappings', ['ILL', L, 'Excused Absence', 'uri://ed-fi.org', 'attendanceEventCategoryDescriptor'], 1),
+      r('descriptorMappings', ['TK', L, 'Kindergarten', 'uri://ed-fi.org', 'gradeLevelDescriptor'], 1),
+      r('descriptorMappings', ['AVID', E, 'Other', 'uri://ed-fi.org', 'programTypeDescriptor'], 1),
+    ],
+    courses: [
+      r('courses', ['MATH-0410', 'SEA 255950', 'Algebra I', 'Mathematics', '2'], 3),
+      r('courses', ['ELA-0110', 'SEA 255950', 'English 9', 'English Language Arts', '2'], 2),
+      r('courses', ['SCI-0310', 'SEA 255950', 'Biology', 'Science', '2'], 2),
+      r('courses', ['LK-ROBO-1', 'LEA 255901', 'Lakeside Robotics', 'Career and Technical Education', '1'], 0, true),
+      r('courses', ['LK-HIST-LOC', 'LEA 255901', 'Lakeside Local History', 'Social Sciences and History', '1'], 0, true),
+    ],
+  };
+  const leas = targets.filter(t => t.scen === 'mn' && t.tags.School_Year === '2027').slice(0, 4).map(t => t.lea);
+  const mn = {
+    edorgs: [
+      r('stateEducationAgencies', ['990000', 'Minnesota SEA (demo)', 'MN SEA', '—', 'State Education Agency'], 3),
+      r('educationServiceCenters', ['990916', 'Metro Regional Service Cooperative (demo)', 'Metro RSC', 'SEA 990000', 'Education Service Center'], 2),
+      ...leas.map((l, i) => r('localEducationAgencies', [String(l.id), l.name, l.name.split(' ')[0] + (l.kind === 'charter' ? ' CS' : ' PS'), 'SEA 990000', l.kind === 'charter' ? 'Charter LEA' : 'Local Education Agency'], 2 + i)),
+      r('schools', [`${leas[0].id}01`, `${leas[0].name.split(' ').slice(0, 2).join(' ')} High School`, 'HS', `LEA ${leas[0].id}`, 'School'], 4),
+      r('schools', [`${leas[0].id}02`, `${leas[0].name.split(' ').slice(0, 2).join(' ')} Elementary`, 'ES', `LEA ${leas[0].id}`, 'School'], 2),
+    ],
+    programs: [
+      r('programs', ['SEA 990000', 'English Learner Services', 'English as a Second Language (ESL)', 'EL-01', 'State education agency'], 2),
+      r('programs', ['SEA 990000', 'Gifted and Talented', 'Gifted and Talented', 'GT-01', 'State education agency'], 1),
+      r('programs', ['SEA 990000', 'Title I Part A', 'Title I Part A', 'T1A-2027', 'Federal'], 3),
+      r('programs', ['SEA 990000', 'Special Education', 'Special Education', 'SPED-01', 'Federal'], 2),
+      r('programs', ['SEA 990000', 'College in the Schools', 'Other', 'CIS-01', 'State education agency'], 1),
+    ],
+    assessments: [
+      r('assessments', ['MN-MATH-03', MS, 'State Mathematics Assessment · Grade 3 (demo)', 'Mathematics', 'Third grade'], 4),
+      r('assessments', ['MN-READ-03', MS, 'State Reading Assessment · Grade 3 (demo)', 'English Language Arts', 'Third grade'], 4),
+      r('assessments', ['MN-SCI-08', MS, 'State Science Assessment · Grade 8 (demo)', 'Science', 'Eighth grade'], 3),
+      r('objectiveAssessments', ['MN-MATH-03.NO', MS, 'Number & Operation', 'Mathematics', 'Third grade'], 2),
+      r('objectiveAssessments', ['MN-MATH-03.AL', MS, 'Algebra', 'Mathematics', 'Third grade'], 2),
+    ],
+    chartOfAccounts: [
+      r('chartOfAccounts', ['01-010-203-110', '2027', 'SEA 990000', '01 General', '203 Elementary', '110 Licensed salaries', 'Elementary licensed salaries'], 2),
+      r('chartOfAccounts', ['01-010-211-140', '2027', 'SEA 990000', '01 General', '211 Secondary', '140 Licensed salaries', 'Secondary licensed salaries'], 2),
+      r('chartOfAccounts', ['04-000-790-401', '2027', 'SEA 990000', '04 Community service', '790 Other community', '401 Supplies', 'Community service supplies'], 1),
+      r('functionDimensions', ['203', '2027', '—', '—', '203 Elementary', '—', 'Elementary instruction'], 1),
+      r('fundDimensions', ['01', '2027', '—', '01 General', '—', '—', 'General fund'], 1),
+    ],
+    certifications: [
+      r('tpdm/certifications', ['MN-T1-ELEM', MS, 'Tier 1 · Elementary Education (demo)', 'Elementary Education', 'Tier 1'], 2),
+      r('tpdm/certifications', ['MN-T3-MATH', MS, 'Tier 3 · Mathematics 5–12 (demo)', 'Mathematics', 'Tier 3'], 2),
+      r('tpdm/certifications', ['MN-T4-SPED', MS, 'Tier 4 · Special Education (demo)', 'Special Education', 'Tier 4'], 1),
+    ],
+    descriptorMappings: [],
+    courses: [
+      r('courses', ['ALG1', 'SEA 990000', 'Algebra I', 'Mathematics', '2'], 3),
+      r('courses', ['DATA-SCI', 'SEA 990000', 'Data Science', 'Mathematics', '1'], 1),
+      r('courses', ['CIS-ENG', 'SEA 990000', 'CIS English Composition', 'English Language Arts', '1'], 2),
+      r('courses', ['BIO1', 'SEA 990000', 'Biology', 'Science', '2'], 2),
+      r('courses', ['CIS-PHYS', 'SEA 990000', 'CIS Physics (retired)', 'Science', '2'], 2),
+    ],
+  };
+  return { pilot, mn };
+})();
+const famRows = key => FAM[S.scenario][key] || [];
+window.editFam = (key, i) => {
+  const f = FAM_COLS[key], row = famRows(key)[i];
+  if (f.edit === null) { toast('Descriptor mappings have no editable attribute: change one by tombstone + create (natural keys are immutable).'); return; }
+  const v = prompt(f.cols[f.edit], row.cells[f.edit]); if (v == null || v === row.cells[f.edit]) return;
+  addItem({ op: 'update', ep: row.ep, key: row.cells.slice(0, f.keyN).join('#'), base: row.rev, before: { [f.cols[f.edit]]: row.cells[f.edit] }, after: { [f.cols[f.edit]]: v } });
+  toast(`Added to draft (base revision ${row.rev})`); render();
+};
+window.tombstoneFam = (key, i) => {
+  const f = FAM_COLS[key], row = famRows(key)[i];
+  addItem({ op: 'tombstone', ep: row.ep, key: row.cells.slice(0, f.keyN).join('#'), base: row.rev, before: Object.fromEntries(f.cols.map((c, j) => [c, row.cells[j]])) });
+  toast('Tombstone added to draft. Only approved tombstones can become deletes.'); render();
+};
 const teamSettings = () => DATA[S.scenario].settings;
 const kindOf = year => { const y = yearSet(year); return y && y.collectionOpens && TODAY >= y.collectionOpens ? 'in_year' : 'setup'; };
 window.setScenario = sc => {
@@ -476,9 +600,10 @@ screens.records = (yr, fam) => {
   ];
   const banner = draft ? `<div class="alert info" style="margin-bottom:1rem">${I('bi-info-circle-fill')}<div>Your edits collect in draft <a class="lnk" href="#/cr/${draft.id}">#${draft.id} ${esc(draft.title)}</a> (${draft.items.length} items). <a class="lnk" href="#/cr/${draft.id}">Submit for review →</a></div></div>` : '';
   if (f.key !== 'descriptors') {
-    return page({ title: `${f.label} · ${y.year}`, actions, body: `${banner}${tableSearch()}
+    return page({ title: `${f.label} · ${y.year}`, actions, body: `${banner}${tableSearch('Search', 'filterDesc(this.value)')}
       <div class="alert warning" style="margin-bottom:1rem">${I('bi-exclamation-triangle-fill')}<div>Schema-driven view generated from the ${y.ds} OpenAPI document for <span class="mono">${f.endpoints.join(', ')}</span>. Nested objects, arrays, and references edit through the schema form.${f.ext ? ` Requires <b>${f.ext}</b> in the target fingerprint.` : ''}${f.optIn ? ` Managed: courses of <span class="mono">edorg</span> scope ${(scopes[y.year]||[]).filter(sc => sc.res === f.key).map(sc => esc(sc.value)).join(', ') || '— none; family off'}. ${S.scenario === 'mn' ? 'No locally defined courses: MDM is the only writer.' : 'Locally defined courses (LEA/school EdOrgs) import read-only.'} Course offerings and sections are out of scope.` : ''}</div></div>
-      <table class="sbaa"><thead><tr><th>Endpoint</th><th>Natural key</th><th>Property</th><th>Property</th><th>Rev</th><th></th></tr></thead><tbody>${[1,2,3,4,5].map(i => `<tr class="clickable" onclick="toast('Schema form (nested objects/arrays/references) — edit → change request item with base revision')"><td class="mono">${f.endpoints[i % f.endpoints.length]}</td><td class="mono">#${1000+i}</td><td class="muted">…</td><td class="muted">…</td><td class="mono">${i}</td><td><span class="row-hover"><button class="btn table-row">${I('bi-pencil')}</button><button class="btn table-row" title="Tombstone">${I('bi-trash')}</button></span></td></tr>`).join('')}</tbody></table>${pagination(counts[y.year][families.indexOf(f)])}` });
+      ${(() => { const fc = FAM_COLS[f.key], rows = famRows(f.key); if (!rows.length || !counts[y.year][families.indexOf(f)]) return '<span class="muted">No records in this year set.</span>';
+        return `<table class="sbaa" id="desc-table"><thead><tr><th>Endpoint</th>${fc.cols.map((c, k) => `<th>${c}${k < fc.keyN ? ' <span class="sm muted">(key)</span>' : ''}</th>`).join('')}<th>Rev</th><th>Scope</th><th></th></tr></thead><tbody>${rows.map((row, i) => `<tr class="${row.ro ? 'ro' : ''}" data-k="${esc([row.ep, ...row.cells].join(' ')).toLowerCase()}"><td class="mono">${row.ep}</td>${row.cells.map((c, k) => `<td class="${k < fc.keyN ? 'mono' : ''}">${esc(c)}</td>`).join('')}<td class="mono">${row.rev || '—'}</td><td>${row.ro ? T('external', 'read-only') : T('ok', 'managed')}</td><td style="white-space:nowrap">${row.ro || !can('edit') ? '' : `<span class="row-hover"><button class="btn table-row" title="Edit" onclick="editFam('${f.key}',${i})">${I('bi-pencil')}</button><button class="btn table-row" title="Tombstone" onclick="tombstoneFam('${f.key}',${i})">${I('bi-trash')}</button></span>`}</td></tr>`).join('')}</tbody></table>`; })()}${pagination(counts[y.year][families.indexOf(f)])}` });
   }
   return page({ title: `Descriptors · ${y.year}`, actions, body: `${banner}${tableSearch('Search', 'filterDesc(this.value)')}
     <div class="sm muted" style="margin-bottom:.75rem">Managed namespaces: ${(scopes[y.year]||[]).filter(s=>s.kind==='namespace').map(s=>`<span class="mono">${s.value}</span>`).join(', ')}. Rows outside scope are read-only.</div>
