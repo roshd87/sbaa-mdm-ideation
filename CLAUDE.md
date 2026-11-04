@@ -14,7 +14,7 @@ Planning record for adding Master Data Management (MDM) to the StartingBlocks Ad
 | `EngineeringBrief.md` | Concise engineer-facing summary of scope + plans; no new decisions | any decision, table, endpoint, or stage changes |
 | `ProjectPlan.guide.html` | 15-slide walkthrough for a non-engineering audience | any of the above changes |
 | `mockup/mdm-prototype.html` | Clickable UI mockup, SBAA chrome, in-memory state, role switcher, Pilot/Minnesota scenario switcher | UI decisions change |
-| `mockup/GUIDE-mdm-admin.md` | Wireframe guide for `mdm-admin`: paths, per-screen actions, walkthroughs | mockup screens, actions, or seed ids change |
+| `mockup/GUIDE-mdm-admin.html` | Interactive wireframe guide for `mdm-admin`: live mockup in a pane, walkthroughs, per-screen actions, paths; drives the mockup through `window.mdmBridge` | mockup screens, actions, or seed ids change |
 | `README.md` | Index | files are added or renamed |
 
 Sibling repos (not in this repo; clone next to it if needed): `../startingblocks_admin_app` (Nx monorepo: NestJS `packages/api`, React `packages/fe`, TypeORM `packages/models-server`, `packages/common-ui`), `../sbaa_api_client` (Python). `ImplementationPlan.md` cites real paths in them — verify against the checkout before changing a step.

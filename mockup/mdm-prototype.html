@@ -1011,6 +1011,8 @@ const shell = (content) => `<div class="layout">
       </main></div>`;
 
 function render() { document.getElementById('app').innerHTML = shell(route()); }
+// Bridge for GUIDE-mdm-admin.html (same-origin iframe): read scenario/user, switch user.
+window.mdmBridge = { scenario: () => S.scenario, user: () => me().id, actAs: id => { S.userIx = users.findIndex(u => u.id === id); render(); } };
 window.addEventListener('hashchange', render);
 render();
 </script>

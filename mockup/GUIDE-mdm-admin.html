@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MDM wireframe guide for admins</title>
+<!--
+  Interactive guide to mdm-prototype.html for the mdm-admin role.
+  Serve the repo root (python3 -m http.server 8000) and open /mockup/GUIDE-mdm-admin.html.
+  The right pane is the live wireframe. Paths, "act as", and scenario controls drive it.
+  Opened from file://, the pane still navigates by path; role and scenario switches need a server.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #1D2A2A; --ink-2: #4F6262; --rule: #D5DFDD; --field: #F3F6F5; --surface: #FFFFFF;
+    --accent: #00615D; --accent-tint: #E3F0EE; --hold: #7A4E00; --hold-tint: #FBF1DD;
+    --focus: #00615D;
+    --s1: .25rem; --s2: .5rem; --s3: .75rem; --s4: 1rem; --s5: 1.5rem; --s6: 2rem; --s7: 3rem;
+    --r: 4px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #E4ECEA; --ink-2: #A3B5B2; --rule: #2E3D3C; --field: #141C1C; --surface: #1B2525;
+      --accent: #5CC3B4; --accent-tint: #173533; --hold: #F0C277; --hold-tint: #33291A; --focus: #5CC3B4; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--field); color: var(--ink); font: 400 15px/1.55 'IBM Plex Sans', system-ui, sans-serif; }
+  code, .path { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: .86em; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .split { display: grid; grid-template-columns: minmax(360px, 36rem) 1fr; height: 100vh; }
+  .guide { overflow-y: auto; background: var(--surface); border-right: 1px solid var(--rule); }
+  .guide-inner { max-width: 40rem; padding: var(--s6) var(--s6) var(--s7); }
+  .stage { position: relative; display: flex; flex-direction: column; min-width: 0; }
+  .stage-bar { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s4); border-bottom: 1px solid var(--rule); font-size: .85rem; color: var(--ink-2); min-height: 2.75rem; }
+  .stage-bar .now { color: var(--ink); }
+  .stage-bar .spacer { flex: 1; }
+  .viewport { position: relative; flex: 1; overflow: hidden; }
+  /* The wireframe is laid out for a desktop; show it at 80% so its chrome fits the pane. */
+  iframe { position: absolute; inset: 0 auto auto 0; width: 125%; height: 125%; border: 0; background: #fbfbfb; transform: scale(.8); transform-origin: 0 0; }
+  @media (min-width: 1800px) { iframe { width: 100%; height: 100%; transform: none; } }
+
+  h1 { font-weight: 300; font-size: 2.25rem; line-height: 1.12; letter-spacing: -.02em; margin: 0 0 var(--s3); }
+  h2 { font-weight: 600; font-size: 1.2rem; line-height: 1.3; margin: var(--s7) 0 var(--s3); }
+  h3 { font-weight: 600; font-size: 1rem; margin: 0; }
+  p { margin: 0 0 var(--s3); }
+  .lede { color: var(--ink-2); font-size: 1.05rem; margin-bottom: var(--s5); }
+  .small { font-size: .85rem; color: var(--ink-2); }
+
+  /* controls */
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-bottom: var(--s5); }
+  .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden; }
+  .seg button { border: 0; background: transparent; color: var(--ink-2); padding: var(--s2) var(--s4); font: inherit; font-size: .9rem; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--rule); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+  .btn { display: inline-flex; align-items: center; gap: var(--s2); border: 1px solid var(--accent); background: var(--accent); color: var(--surface); border-radius: var(--r); padding: var(--s2) var(--s4); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; }
+  .btn.quiet { background: transparent; color: var(--accent); }
+  .btn:hover { filter: brightness(1.08); }
+  .path { display: inline-block; border: 1px solid var(--rule); background: var(--field); color: var(--accent); border-radius: var(--r); padding: 0 var(--s2); line-height: 1.7; cursor: pointer; text-decoration: none; white-space: nowrap; }
+  .path:hover { border-color: var(--accent); }
+  .path.on { background: var(--accent-tint); border-color: var(--accent); }
+  .as { border: 0; background: none; padding: 0; font: inherit; font-size: .85rem; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+
+  /* tabs */
+  nav.tabs { position: sticky; top: 0; z-index: 2; background: var(--surface); display: flex; gap: var(--s5); border-bottom: 1px solid var(--rule); margin: 0 calc(-1 * var(--s6)) var(--s5); padding: 0 var(--s6); }
+  nav.tabs a { padding: var(--s3) 0; color: var(--ink-2); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: .92rem; }
+  nav.tabs a[aria-current="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+
+  /* limits */
+  .limit { border-left: 3px solid var(--hold); background: var(--hold-tint); padding: var(--s3) var(--s4); border-radius: 0 var(--r) var(--r) 0; margin-bottom: var(--s3); }
+  .limit b { color: var(--hold); }
+
+  /* walkthroughs */
+  details.walk { border-top: 1px solid var(--rule); }
+  details.walk:last-of-type { border-bottom: 1px solid var(--rule); }
+  details.walk > summary { list-style: none; display: grid; grid-template-columns: 1fr auto; gap: var(--s3); align-items: baseline; padding: var(--s4) 0; cursor: pointer; }
+  details.walk > summary::-webkit-details-marker { display: none; }
+  details.walk > summary .sub { grid-column: 1 / -1; color: var(--ink-2); font-size: .9rem; margin-top: calc(-1 * var(--s2)); }
+  .progress { font-size: .82rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .progress.done { color: var(--accent); font-weight: 600; }
+  ol.steps { list-style: none; margin: 0 0 var(--s5); padding: 0; }
+  ol.steps li { display: grid; grid-template-columns: 1.75rem 1fr; gap: var(--s1) var(--s3); padding: var(--s2) 0; }
+  .tick { width: 1.5rem; height: 1.5rem; border: 1px solid var(--rule); border-radius: 50%; background: var(--surface); color: var(--ink-2); font: inherit; font-size: .78rem; font-variant-numeric: tabular-nums; cursor: pointer; padding: 0; }
+  .tick:hover { border-color: var(--accent); color: var(--accent); }
+  .tick[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  ol.steps li.checked .txt { color: var(--ink-2); }
+  .step-tools { grid-column: 2; display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: center; }
+  .step-tools:empty { display: none; }
+
+  /* screens */
+  .search { width: 100%; font: inherit; padding: var(--s2) var(--s3); border: 1px solid var(--rule); border-radius: var(--r); background: var(--field); color: var(--ink); margin-bottom: var(--s4); }
+  details.screen { border-top: 1px solid var(--rule); }
+  details.screen > summary { list-style: none; display: flex; justify-content: space-between; gap: var(--s3); padding: var(--s3) 0; cursor: pointer; }
+  details.screen > summary::-webkit-details-marker { display: none; }
+  details.screen[open] > summary h3::after, details.walk[open] > summary h3::after { content: ""; }
+  details.screen.live > summary h3 { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; margin: var(--s2) 0 var(--s4); }
+  th { text-align: left; font-weight: 600; color: var(--ink-2); font-size: .82rem; padding: var(--s2) var(--s3) var(--s2) 0; border-bottom: 1px solid var(--rule); }
+  td { vertical-align: top; padding: var(--s2) var(--s3) var(--s2) 0; border-bottom: 1px solid var(--rule); }
+  td:first-child { white-space: nowrap; font-weight: 600; }
+  .note { font-size: .88rem; color: var(--ink-2); margin: 0 0 var(--s4); }
+  .empty { color: var(--ink-2); padding: var(--s4) 0; }
+
+  .ids td:first-child { font-weight: 400; color: var(--ink-2); }
+  .ids td { white-space: normal; }
+
+  .narrow { display: none; }
+  @media (max-width: 1000px) {
+    .wide { display: none !important; }
+    .narrow { display: inline; }
+    .split { display: block; height: auto; }
+    .guide { border-right: 0; }
+    .stage { display: none; }
+    .guide-inner { padding: var(--s5) var(--s4) var(--s7); }
+    nav.tabs { margin: 0 calc(-1 * var(--s4)) var(--s5); padding: 0 var(--s4); overflow-x: auto; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .path, .seg button, .btn { transition: background-color .15s ease-out, border-color .15s ease-out; }
+  }
+</style>
+</head>
+<body>
+<div class="split">
+  <main class="guide" id="guide">
+    <div class="guide-inner">
+      <h1>Find your way through the MDM wireframe as an admin</h1>
+      <p class="lede"><span class="wide">Every path below opens in the wireframe on the right. Pick a scenario, set the mockup up as <code>a.chen</code>, then follow a walkthrough or browse the screens.</span><span class="narrow">Paths open the wireframe in a new tab. Set <b>Acting as</b> to <code>a.chen</code> and <b>Scenario</b> in its app bar, then follow a walkthrough.</span></p>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Scenario">
+          <button type="button" data-sc="pilot" aria-pressed="true">Pilot</button>
+          <button type="button" data-sc="mn" aria-pressed="false">Minnesota</button>
+        </div>
+        <button type="button" class="btn wide" id="setup">Set up as a.chen</button>
+        <button type="button" class="btn quiet wide" id="reset">Reset mockup</button>
+      </div>
+      <p class="small" id="sc-note"></p>
+
+      <nav class="tabs" aria-label="Guide sections">
+        <a href="#walkthroughs" aria-current="true">Walkthroughs</a>
+        <a href="#screens">Screens</a>
+        <a href="#paths">Paths</a>
+        <a href="#limits">Limits</a>
+      </nav>
+
+      <section id="walkthroughs" aria-labelledby="h-walk">
+        <h2 id="h-walk" style="margin-top:0">Walkthroughs</h2>
+        <p class="note">Open a path to show that screen, do the action there, then select the step number to mark it done. Progress is saved in this browser.</p>
+        <div id="walk-list"></div>
+      </section>
+
+      <section id="screens" aria-labelledby="h-screens">
+        <h2 id="h-screens">Screens and actions</h2>
+        <input class="search" id="q" type="search" placeholder="Filter by screen, button, or path" aria-label="Filter screens" />
+        <div id="screen-list"></div>
+      </section>
+
+      <section id="paths" aria-labelledby="h-paths">
+        <h2 id="h-paths">Paths and seeded records</h2>
+        <table>
+          <thead><tr><th>Path</th><th>Screen</th></tr></thead>
+          <tbody id="route-rows"></tbody>
+        </table>
+        <p class="note">Family keys: <code>descriptors</code>, <code>edorgs</code>, <code>programs</code>, <code>assessments</code>, <code>chartOfAccounts</code>, <code>certifications</code>, <code>descriptorMappings</code>, <code>courses</code>. Courses appear only in year sets with a <code>courses</code> scope.</p>
+        <table class="ids">
+          <thead><tr><th>Seeded</th><th id="ids-head">Pilot</th></tr></thead>
+          <tbody id="id-rows"></tbody>
+        </table>
+      </section>
+
+      <section id="limits" aria-labelledby="h-limits">
+        <h2 id="h-limits">What an admin cannot do</h2>
+        <p class="note"><code>mdm-admin</code> holds every privilege: <code>read</code>, <code>edit</code>, <code>approve</code>, <code>publish</code>, <code>configure</code>. Separation of duties still applies, and admins are not exempt.</p>
+        <div class="limit"><p><b>You cannot approve a change request you contributed to.</b> Approve shows “you contributed to this batch”. Editing any record makes you a contributor to your draft.</p><button type="button" class="as" data-as="r.dhanawade">Act as r.dhanawade to approve it</button></div>
+        <div class="limit"><p><b>You cannot give the second approval to an in-year manifest you built.</b> Second approval shows “you built this manifest”.</p><button type="button" class="as" data-as="r.dhanawade">Act as r.dhanawade</button> or <button type="button" class="as" data-as="j.okafor">j.okafor</button></div>
+        <h2>Not wired yet</h2>
+        <p class="note">Forms are browser prompts until Stage 1 picks a form pattern. These buttons only show a message: Import file, Discard, Create source, Edit mapping, Add scope, Edit settings, Edit namespaces, adopt, and the scheduled-scan toggle. Reload or reset the mockup to clear every change.</p>
+      </section>
+    </div>
+  </main>
+
+  <section class="stage" aria-label="Live wireframe">
+    <div class="stage-bar"><span>Showing</span><span class="now" id="now">Home</span><code id="now-path">#/</code><span class="spacer"></span><a href="mdm-prototype.html" target="mdm-mockup" id="pop">Open in a new tab</a></div>
+    <div class="viewport"><iframe id="mock" src="mdm-prototype.html" title="MDM wireframe"></iframe></div>
+  </section>
+</div>
+
+<script>
+/* ---------- content ---------- */
+const ROUTES = [
+  ['#/', 'Home', 'The inbox: reviews, drafts, manifests, runs, drift.'],
+  ['#/account', 'Account', 'Your role and effective privileges.'],
+  ['#/cr', 'Change requests', 'Every change request.'],
+  ['#/cr/<id>', 'Change request', 'One batch of items.'],
+  ['#/manifests', 'Manifests', 'Every manifest.'],
+  ['#/manifests/<id>', 'Manifest', 'One manifest, its approvals and targets.'],
+  ['#/push', 'Build manifest', 'Four-step wizard.'],
+  ['#/runs', 'Runs', 'Every run.'],
+  ['#/runs/<id>', 'Run', 'Outcomes, triage, re-run.'],
+  ['#/drift', 'Drift', 'Read-only scan results.'],
+  ['#/sources', 'Upstream sources', 'HTTP-API connectors.'],
+  ['#/settings', 'Settings', 'Apply limits, namespaces, scopes, ownership.'],
+  ['#/rollforward', 'Roll forward', 'Create the next year set.'],
+  ['#/year/<year>', 'Year set', 'One school year.'],
+  ['#/year/<year>/<family>', 'Records', 'One resource family.'],
+];
+const IDS = {
+  pilot: [['Year sets', '2024, 2025, 2026'], ['Change requests', ['#/cr/12', 'submitted'], ['#/cr/11', 'stale'], ['#/cr/10', 'approved'], ['#/cr/9', 'rejected']],
+    ['Manifests', ['#/manifests/31', 'approved'], ['#/manifests/30', 'done'], ['#/manifests/29', 'superseded']], ['Runs', ['#/runs/7', 'partial'], ['#/runs/6', 'success']]],
+  mn: [['Year sets', '2026 in-year, 2027 pre-collection setup'], ['Change requests', ['#/cr/41', 'catalog refresh'], ['#/cr/40', 'in-year code'], ['#/cr/39', 'approved']],
+    ['Manifests', ['#/manifests/213', 'setup, approved'], ['#/manifests/212', 'in-year, done']], ['Runs', ['#/runs/88', 'breaker suspension']]],
+};
+const SC_NOTE = {
+  pilot: 'Pilot: EA’s internal tenant, Lakeside ISD, a handful of targets.',
+  mn: 'Minnesota: one state team, 512 LEAs with one Ed-Fi tenant each, MDM as the only master-data writer.',
+};
+
+// Screen: [name, path, match(hash) , rows [action, result], note]
+const SCREENS = [
+  { name: 'Home', path: '#/', m: h => h === '#/' || h === '', rows: [
+    ['Review', 'Opens the change request. Rows you contributed to say you cannot approve.'],
+    ['Apply', 'Opens an approved manifest.'],
+    ['Fix', 'Opens Build manifest from a drift alert.'],
+    ['Year set row', 'Opens the year set.'],
+    ['View all', 'Each list shows five rows, then links to the full list.'] ],
+    note: 'Minnesota adds “Manifests awaiting second approval” when one exists.' },
+  { name: 'Year set', path: '#/year/2026', m: h => /^#\/year\/\d+$/.test(h), rows: [
+    ['Build manifest', 'Opens the wizard with this year set selected.'],
+    ['Roll forward', 'Opens Roll forward for the latest year set.'],
+    ['Scopes', 'Opens Settings.'],
+    ['Family row', 'Opens that family’s records.'] ],
+    note: 'Shows the pinned standard, published revision, descriptor namespaces, and scopes. Minnesota adds the collection-opens date. Targets are paged at 25.' },
+  { name: 'Records', path: '#/year/2026/descriptors', m: h => /^#\/year\/\d+\/\w+$/.test(h), rows: [
+    ['Import from ODS', 'Creates a draft change request with one imported row.'],
+    ['Pull from upstream', 'Opens Upstream sources.'],
+    ['Create', 'Descriptors only. Prompts for a code value and adds a create item.'],
+    ['Pencil on a row', 'Prompts for the editable field and adds an update item with the base revision.'],
+    ['Trash on a row', 'Adds a tombstone item. Only approved tombstones become deletes.'],
+    ['Search', 'Filters rows on every family.'] ],
+    note: 'Grey rows are outside managed scope and read-only. Descriptor mappings have no editable field; a change needs tombstone plus create.' },
+  { name: 'Change request', path: '#/cr/12', m: h => /^#\/cr(\/\d+)?$/.test(h), rows: [
+    ['Submit for review', 'Draft only. Freezes the batch and stores its hash.'],
+    ['Approve', 'Compare-and-swap on every base revision. A stale batch is rejected and stays submitted.'],
+    ['Reject', 'Submitted only.'],
+    ['Reopen', 'Returns a submitted or rejected batch to draft.'],
+    ['Build manifest', 'Approved only. Opens the wizard.'] ],
+    note: 'Approving publishes the batch and supersedes open manifests for that year set.' },
+  { name: 'Build manifest', path: '#/push', m: h => h === '#/push', rows: [
+    ['Read targets & preview', 'Step 1 to 2. Year set, Environment_Type, EA_Tenant, and the deletes option set the targets.'],
+    ['Approve manifest', 'Step 2, setup. Creates an approved manifest and opens it.'],
+    ['Approve (first of two)', 'Step 2, in-year. Creates a manifest awaiting a second approval.'],
+    ['Ensure applications', 'Minnesota, step 1. Queues the batch ensure under the concurrency cap.'] ],
+    note: 'A yellow banner marks an in-year adjustment: deletes are disabled and the run waits for the quiet window. Blocked targets list first with their reason.' },
+  { name: 'Manifest', path: '#/manifests/31', m: h => /^#\/manifests(\/\d+)?$/.test(h), rows: [
+    ['Second approval', 'In-year, awaiting approval, built by someone else.'],
+    ['Apply', 'Setup. Runs now and opens the run.'],
+    ['Apply in next window', 'In-year, after the second approval. The run waits for Sat 01:00–05:00.'],
+    ['Discard', 'Message only.'] ],
+    note: 'Minnesota shows how operations are stored: one row per target per operation, payloads shared.' },
+  { name: 'Run', path: '#/runs/7', m: h => /^#\/runs(\/\d+)?$/.test(h), rows: [
+    ['Simulate window opening', 'In-year runs waiting for their window. Executes the run.'],
+    ['Re-run', 'Same manifest, never re-diffs. Uncertain is reconciled first; pending is included after a breaker suspension; conflicts stay.'] ],
+    note: 'Minnesota runs add the breaker alert, Triage by cause, and a By target table sorted worst first.' },
+  { name: 'Drift', path: '#/drift', m: h => h === '#/drift', rows: [
+    ['Scan now', 'Queues a read-only manifest build. Minnesota scans on demand under the concurrency cap.'],
+    ['new manifest', 'Opens Build manifest from an owned-path row.'],
+    ['adopt', 'Message only: becomes a change request item.'] ] },
+  { name: 'Upstream sources', path: '#/sources', m: h => h === '#/sources', rows: [
+    ['Pull now', 'Adds the source’s sample item to your draft and opens it.'],
+    ['Create', 'Message only: HTTP API, allow-listed origin, team-bound secret.'] ] },
+  { name: 'Settings', path: '#/settings', m: h => h === '#/settings', rows: [
+    ['Edit (apply and windows)', 'Message only. Shows applyConcurrency, applyBreakerPct, the quiet window, and collectionOpensOn per year set.'],
+    ['Edit (namespaces)', 'Message only.'],
+    ['Add scope', 'Message only.'] ],
+    note: 'Field ownership reads default in Pilot and sole-writer in Minnesota.' },
+  { name: 'Roll forward', path: '#/rollforward', m: h => h === '#/rollforward', rows: [
+    ['Namespace box', 'Pre-filled from the latest year set. One prefix per line, checked as you type.'],
+    ['Create next from latest', 'Enabled when every prefix passes. Creates the year set and opens it.'] ],
+    note: 'Prefixes use plain URI characters, stay at 64 characters or fewer, and never include a descriptor domain. A state team uses a state domain ending in .gov or .us, such as uri://education.mn.gov.' },
+  { name: 'Account', path: '#/account', m: h => h === '#/account', rows: [['—', 'Role, privileges, and the role table. No actions.']] },
+];
+
+// Walkthrough steps: t = text (HTML), go = path, as = user to act as
+const WALKS = [
+  { id: 'p-apply', sc: 'pilot', title: 'Apply a manifest and read the conflict', sub: 'Do this first: approving #12 later supersedes manifest 31.', steps: [
+    { t: 'Open manifest 31 and select <b>Apply</b>.', go: '#/manifests/31' },
+    { t: 'Find the <code>conflict</code> row (412) and the no-rollback alert.' },
+    { t: 'Select <b>Re-run</b>. Uncertain operations reconcile; the conflict remains.' } ] },
+  { id: 'p-approve', sc: 'pilot', title: 'Approve a change request, then hit a stale one', steps: [
+    { t: 'Open change request 12 and select <b>Approve</b>. The published revision advances.', go: '#/cr/12' },
+    { t: 'Open change request 11 and select <b>Approve</b>. It is rejected as stale.', go: '#/cr/11' } ] },
+  { id: 'p-handoff', sc: 'pilot', title: 'Edit a descriptor and hand off the approval', steps: [
+    { t: 'Hover a <code>uri://lakeside.org</code> row and select the pencil. Enter a new description.', go: '#/year/2026/descriptors' },
+    { t: 'Follow the blue banner to your draft and select <b>Submit for review</b>.' },
+    { t: 'Approve is disabled because you contributed. Switch user and approve.', as: 'r.dhanawade' } ] },
+  { id: 'p-build', sc: 'pilot', title: 'Build a manifest from scratch', steps: [
+    { t: 'Set Environment_Type to dev and select <b>Read targets &amp; preview</b>.', go: '#/push' },
+    { t: 'Review the sample diff and select <b>Approve manifest</b>.' },
+    { t: 'On the new manifest, select <b>Apply</b>.' } ] },
+  { id: 'p-roll', sc: 'pilot', title: 'Roll 2026 forward', steps: [
+    { t: 'Keep <code>uri://ea.startingblocks.org</code> and <code>uri://lakeside.org</code>, then select <b>Create 2027 from 2026</b>.', go: '#/rollforward' } ] },
+
+  { id: 'm-setup', sc: 'mn', title: 'Apply the pre-collection setup manifest', steps: [
+    { t: 'Open manifest 213 and select <b>Apply</b>. It reaches 512 targets, 25 at a time.', go: '#/manifests/213' },
+    { t: 'Read <b>Triage by cause</b> and the <b>By target</b> table.' } ] },
+  { id: 'm-inyear', sc: 'mn', title: 'Run an in-year adjustment with two approvals', steps: [
+    { t: 'Choose year set 2026. The yellow banner appears and deletes are disabled.', go: '#/push' },
+    { t: 'Select <b>Read targets &amp; preview</b>, then <b>Approve (first of two)</b>.' },
+    { t: 'Second approval is disabled because you built it. Switch user and select <b>Second approval</b>.', as: 'r.dhanawade' },
+    { t: 'Switch back and select <b>Apply in next window</b>. The run waits for Sat 01:00–05:00.', as: 'a.chen' },
+    { t: 'Select <b>Simulate window opening</b>.' } ] },
+  { id: 'm-breaker', sc: 'mn', title: 'Resume a circuit-breaker suspension', steps: [
+    { t: 'Read the breaker alert: 6 of 52 finished targets failed.', go: '#/runs/88' },
+    { t: 'Select <b>Re-run 926 remaining on 466 targets</b>. The run finishes as success.' } ] },
+  { id: 'm-catalog', sc: 'mn', title: 'Edit the state course catalog', steps: [
+    { t: 'Select the pencil on <code>ALG1</code> and enter a new title. Your draft gains an update item.', go: '#/year/2027/courses' } ] },
+  { id: 'm-provision', sc: 'mn', title: 'Check provisioning before a build', steps: [
+    { t: 'Read tag coverage, application readiness, and the SEA check on step 1.', go: '#/push' },
+    { t: 'Select <b>Ensure applications</b>.' } ] },
+  { id: 'm-drift', sc: 'mn', title: 'Scan for drift on demand', steps: [
+    { t: 'Select <b>Scan now</b>. Owned-path rows offer new manifest or adopt.', go: '#/drift' } ] },
+  { id: 'm-roll', sc: 'mn', title: 'Roll forward with namespace checks', steps: [
+    { t: 'The box shows <code>uri://education.mn.gov</code>.', go: '#/rollforward' },
+    { t: 'Try <code>uri://mn-education.example.com</code>. It is refused: not a state domain.' },
+    { t: 'Try <code>uri://education.mn.gov/GradeLevelDescriptor</code>. It is refused: prefix only.' },
+    { t: 'Enter <code>uri://education.mn.gov</code> and select <b>Create 2028 from 2027</b>.' } ] },
+];
+
+/* ---------- state ---------- */
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+let sc = store.get('guide.sc', 'pilot');
+const done = store.get('guide.done', {});
+const frame = document.getElementById('mock');
+const live = () => { try { const w = frame.contentWindow; return w && w.mdmBridge ? w : null; } catch { return null; } };
+const narrow = () => matchMedia('(max-width: 1000px)').matches;
+
+/* ---------- mockup control ---------- */
+function show(path) {
+  if (narrow()) { window.open('mdm-prototype.html' + path, 'mdm-mockup'); return; }
+  const w = live();
+  if (w) w.location.hash = path; else frame.src = 'mdm-prototype.html' + path;
+}
+function actAs(id) {
+  const w = live(); if (!w) { alert(`Set Acting as to ${id} in the mockup's app bar.`); return; }
+  w.mdmBridge.actAs(id); syncNow();
+}
+function setScenario(next, drive = true) {
+  sc = next; store.set('guide.sc', sc);
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sc === sc)));
+  document.getElementById('sc-note').textContent = SC_NOTE[sc];
+  const w = live(); if (drive && w && w.mdmBridge.scenario() !== sc) w.setScenario(sc);
+  renderWalks(); renderIds();
+}
+function setup() { const w = live(); if (!w) { alert('Serve the repo folder to let the guide drive the mockup. Then set Scenario and Acting as in its app bar.'); return; } if (w.mdmBridge.scenario() !== sc) w.setScenario(sc); actAs('a.chen'); show('#/'); }
+function resetMock() { frame.src = 'mdm-prototype.html'; }
+
+/* ---------- rendering ---------- */
+const pathBtn = p => `<button type="button" class="path" data-go="${p}">${p}</button>`;
+function renderWalks() {
+  const list = WALKS.filter(w => w.sc === sc);
+  document.getElementById('walk-list').innerHTML = list.map(w => {
+    const n = w.steps.filter((_, i) => done[`${w.id}.${i}`]).length;
+    return `<details class="walk" data-id="${w.id}">
+      <summary><h3>${w.title}</h3><span class="progress${n === w.steps.length ? ' done' : ''}">${n === w.steps.length ? 'Done' : `${n} of ${w.steps.length}`}</span>${w.sub ? `<span class="sub">${w.sub}</span>` : ''}</summary>
+      <ol class="steps">${w.steps.map((s, i) => { const k = `${w.id}.${i}`, d = !!done[k]; return `<li class="${d ? 'checked' : ''}"><button type="button" class="tick" data-tick="${k}" aria-pressed="${d}" aria-label="Step ${i + 1}: mark ${d ? 'not done' : 'done'}" title="Mark ${d ? 'not done' : 'done'}">${d ? '✓' : i + 1}</button><span class="txt">${s.t}</span>
+        <span class="step-tools">${s.go ? pathBtn(s.go) : ''}${s.as ? `<button type="button" class="as wide" data-as="${s.as}">Act as ${s.as}</button>` : ''}</span></li>`; }).join('')}</ol>
+    </details>`;
+  }).join('');
+}
+function renderScreens(q = '') {
+  const t = q.trim().toLowerCase();
+  const hits = SCREENS.filter(s => !t || [s.name, s.path, s.note || '', ...s.rows.flat()].join(' ').toLowerCase().includes(t));
+  document.getElementById('screen-list').innerHTML = hits.map(s => `<details class="screen" data-name="${s.name}"${t ? ' open' : ''}>
+      <summary><h3>${s.name}</h3>${pathBtn(s.path)}</summary>
+      <table><thead><tr><th>Action</th><th>What happens</th></tr></thead><tbody>${s.rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</tbody></table>
+      ${s.note ? `<p class="note">${s.note}</p>` : ''}
+    </details>`).join('') || `<p class="empty">No screen or action matches “${q}”. Try a button name such as Approve or a path such as #/runs.</p>`;
+  syncNow();
+}
+function renderRoutes() {
+  document.getElementById('route-rows').innerHTML = ROUTES.map(([p, n, d]) => `<tr><td>${p.includes('<') ? `<code>${p.replace(/</g, '&lt;')}</code>` : pathBtn(p)}</td><td>${n}<div class="small">${d}</div></td></tr>`).join('');
+}
+function renderIds() {
+  document.getElementById('ids-head').textContent = sc === 'mn' ? 'Minnesota' : 'Pilot';
+  document.getElementById('id-rows').innerHTML = IDS[sc].map(([k, ...v]) => `<tr><td>${k}</td><td>${v.map(x => Array.isArray(x) ? `${pathBtn(x[0])} <span class="small">${x[1]}</span>` : x).join('<br/>')}</td></tr>`).join('');
+}
+
+/* ---------- live sync with the mockup ---------- */
+function syncNow() {
+  const w = live(); let h = '#/';
+  try { h = (frame.contentWindow.location.hash || '#/'); } catch {}
+  const s = SCREENS.find(x => x.m(h));
+  document.getElementById('now').textContent = (s ? s.name : 'Wireframe') + (w ? ` as ${w.mdmBridge.user()}` : '');
+  document.getElementById('now-path').textContent = h;
+  document.getElementById('pop').href = 'mdm-prototype.html' + h;
+  document.querySelectorAll('details.screen').forEach(d => d.classList.toggle('live', !!s && d.dataset.name === s.name));
+  document.querySelectorAll('.path').forEach(b => b.classList.toggle('on', b.dataset.go === h));
+}
+frame.addEventListener('load', () => {
+  const w = live();
+  if (w) { w.addEventListener('hashchange', syncNow); w.document.addEventListener('change', () => setTimeout(syncNow, 0));
+    if (w.mdmBridge.scenario() !== sc) w.setScenario(sc); }
+  syncNow();
+});
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const go = e.target.closest('[data-go]'); if (go) { e.preventDefault(); show(go.dataset.go); return; }
+  const as = e.target.closest('[data-as]'); if (as) { actAs(as.dataset.as); return; }
+  const tk = e.target.closest('[data-tick]');
+  if (tk) { const k = tk.dataset.tick; done[k] = !done[k]; store.set('guide.done', done); const open = [...document.querySelectorAll('details.walk[open]')].map(d => d.dataset.id); renderWalks(); open.forEach(id => document.querySelector(`details.walk[data-id="${id}"]`)?.setAttribute('open', '')); return; }
+  const seg = e.target.closest('.seg button'); if (seg) { setScenario(seg.dataset.sc); return; }
+});
+document.getElementById('setup').addEventListener('click', setup);
+document.getElementById('reset').addEventListener('click', resetMock);
+document.getElementById('q').addEventListener('input', e => renderScreens(e.target.value));
+// tabs: highlight the section in view
+const guide = document.getElementById('guide'); const tabs = [...document.querySelectorAll('nav.tabs a')];
+const scroller = () => narrow() ? document.scrollingElement : guide;
+const mark = () => { const top = scroller().scrollTop + 120; let cur = tabs[0];
+  tabs.forEach(a => { const s = document.querySelector(a.getAttribute('href')); if (s.offsetTop <= top) cur = a; });
+  tabs.forEach(a => a.setAttribute('aria-current', String(a === cur))); };
+guide.addEventListener('scroll', mark, { passive: true }); window.addEventListener('scroll', mark, { passive: true });
+tabs.forEach(a => a.addEventListener('click', e => { e.preventDefault(); scroller().scrollTo({ top: document.querySelector(a.getAttribute('href')).offsetTop - 56, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }));
+
+renderRoutes(); renderScreens(); setScenario(sc, false);
+document.querySelector('details.walk')?.setAttribute('open', '');
+</script>
+</body>
+</html>
