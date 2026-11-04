@@ -195,10 +195,12 @@ From the adversarial review (2026-10-06); finding *n* is cited as `AR-n` here an
 → Roll-forward pre-fills the source year set's namespaces. The admin confirms or changes them.
 → Each namespace becomes a `namespace` managed scope of the new year set (Q20).
 → The MDM vendor's `namespacePrefixes` holds the union of the team's active year-set namespaces.
+→ Every namespace uses only unreserved URI characters (`A–Z a–z 0–9 - . _ ~ /`). Nothing in it needs percent-escaping.
+→ A namespace is at most 64 characters. The namespace step refuses longer ones.
 → The team setting `partnerKind` takes `state` or `other`. *Applies to `state` only:*
-→ Every namespace follows `uri://<statename>.gov` or another state government URI (e.g. `uri://education.mn.gov`).
-→ The namespace step refuses a host that does not end in `.gov`.
-→ Rationale: a new school year is when an agency re-issues or retires namespaces. Fixing them first means every import and change item is checked against the right prefix from the start. A descriptor namespace names the issuing authority; for a state, that authority is a government domain.
+→ The host follows a common state-domain pattern. It ends in `.gov` or `.us` and one label names the state by postal code or name.
+→ Examples: `uri://minnesota.gov`, `uri://education.mn.gov`, `uri://education.mn.state.us`. The namespace step refuses other hosts.
+→ Rationale: a new school year is when an agency re-issues or retires namespaces. Fixing them first means every import and change item is checked against the right prefix from the start. A descriptor namespace names the issuing authority; for a state, that authority is a government domain, and states publish under both `.gov` and `.us`. Every descriptor value repeats its namespace, so short, escape-free namespaces keep payloads, keys, and URLs readable.
 
 ## 4. In Scope
 
