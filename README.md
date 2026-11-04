@@ -10,6 +10,7 @@ Planning artefacts for adding a partner-level Master Data Management capability 
 | `ImplementationPlan.md` | 77 engineering steps against the SBAA monorepo, with checks and release order | you are building it |
 | `ProjectPlan.guide.html` | 15-slide walkthrough for a group — open in a browser, `→`/`←` to navigate, `P` to print | you are presenting it |
 | `mockup/mdm-prototype.html` | Clickable UI mockup in SBAA's chrome; switch roles with "Acting as" and Pilot vs Minnesota statewide (512 LEAs) with "Scenario" | you want to see it |
+| `mockup/GUIDE-mdm-admin.md` | Screen-by-screen guide to the wireframe as `mdm-admin`: paths, actions, walkthroughs for both scenarios | you are demoing or reviewing the mockup |
 
 Related repos: [`startingblocks_admin_app`](https://github.com/edanalytics/startingblocks_admin_app), [`sbaa_api_client`](https://github.com/edanalytics/sbaa_api_client).
 
